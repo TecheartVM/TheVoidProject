@@ -4,7 +4,16 @@ using UnityEngine;
 
 public class Interactable : MonoBehaviour
 {
-    private bool canInteract = false; 
+    private bool canInteract = false;
+
+    private ThirdPersonControl characterController;
+    private CameraController cameraController;
+
+    private void Start()
+    {
+        characterController = PlayerManager.instance.player.GetComponent<ThirdPersonControl>();
+        cameraController = PlayerManager.instance.player.GetComponent<CameraController>();
+    }
 
     protected virtual void Interact()
     {
@@ -15,8 +24,7 @@ public class Interactable : MonoBehaviour
     {
         if(canInteract)
         {
-            ThirdPersonControl playerController = PlayerManager.instance.player.GetComponent<ThirdPersonControl>();
-            if(Vector3.Angle(playerController.cameraLookDirection, transform.position - playerController.GetCameraTransform().position) <= playerController.GetInteractionFieldAngle())
+            if(Vector3.Angle(cameraController.mainCamera.forward, transform.position - cameraController.mainCamera.position) <= characterController.GetInteractionFieldAngle())
             {
                 if(Input.GetButtonDown("Interact"))
                 {

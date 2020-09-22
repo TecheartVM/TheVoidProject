@@ -5,10 +5,10 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Weapon/Holding Config", fileName = "New Holding Config")]
 public class WeaponHoldingConfig : ScriptableObject
 {
-    public Vector3 rightHandPosition;
-    public Vector3 rightHandRotation;
-    public Vector3 weaponOriginalLocalPosition;
-    public Vector3 weaponOriginalLocalRotation;
-    public Vector3 inactiveWeaponPosition;
-    public Vector3 inactiveWeaponRotation;
+    public Vector3 posInRightHand;
+    public Vector3 rotInRightHand;
+    public Vector3 posRightShoulderRelative;
+    public Vector3 rotRightShoulderRelative;
+    public Vector3 posInactive;
+    public Vector3 rotInactive;
 }

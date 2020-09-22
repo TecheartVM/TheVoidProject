@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class AimingIK : MonoBehaviour
 {
-    private Transform leftHandIKTarget;
     private Transform bulletEmitter;
 
     [SerializeField] [Range(0, 1)] private float lookWeightNormal = 0.3f;
@@ -16,6 +15,9 @@ public class AimingIK : MonoBehaviour
 
     [SerializeField] private bool showDebugInfo = true;
 
+    public Transform pivot;
+    public Transform target;
+
     private Animator animator;
 
     private ThirdPersonControl characterControlScript;
@@ -24,7 +26,6 @@ public class AimingIK : MonoBehaviour
 
     private Transform leftHandTarget;
     private Transform rightHandTarget;
-    private Transform aimingPivot;
 
     private float rightHandIKWeight = 0;
 
@@ -43,6 +44,8 @@ public class AimingIK : MonoBehaviour
         }
     }
 
+    private bool holdingStateUpdateFlag = true;
+
     void Start()
     {
         animator = GetComponent<Animator>();
@@ -54,6 +57,7 @@ public class AimingIK : MonoBehaviour
         if (animator != null)
         {
             rightShoulder = animator.GetBoneTransform(HumanBodyBones.RightShoulder);
+            pivot.position = rightShoulder.position;
         }
         else
         {
@@ -68,15 +72,12 @@ public class AimingIK : MonoBehaviour
     private void SetupTemporaryObjects()
     {
         IWeapon currentWeapon = characterControlScript.currentWeapon;
-
         if (currentWeapon == null)
         {
             doIK = false;
             return;
         }
-
         WeaponHoldingConfig currentWeaponHoldingConfig = currentWeapon.GetHoldingConfig();
-
         if (currentWeaponHoldingConfig == null)
         {
             doIK = false;
@@ -85,44 +86,57 @@ public class AimingIK : MonoBehaviour
 
         doIK = true;
 
-        leftHandIKTarget = characterControlScript.currentWeapon.GetLeftHandIKTarget();
+        leftHandTarget = characterControlScript.currentWeapon.GetLeftHandIKTarget();
+        rightHandTarget = characterControlScript.currentWeapon.GetRightHandIKTarget();
+
         bulletEmitter = characterControlScript.currentWeapon.GetBulletEmitter();
 
-        if (aimingPivot != null) Destroy(aimingPivot.gameObject);
-        if (leftHandTarget != null) Destroy(leftHandTarget.gameObject);
-        if (rightHandTarget != null) Destroy(rightHandTarget.gameObject);
+        SetAimingState(characterControlScript.isHoldingAim);
+    }
 
-        aimingPivot = new GameObject().transform;
-        aimingPivot.name = "Aiming Pivot";
-        aimingPivot.parent = transform;
-
-        leftHandTarget = new GameObject().transform;
-        leftHandTarget.name = "Left Hand Target";
-        leftHandTarget.parent = aimingPivot;
-
-        rightHandTarget = new GameObject().transform;
-        rightHandTarget.name = "Right Hand Target";
-        rightHandTarget.parent = aimingPivot;
-
-        rightHandTarget.localPosition = currentWeaponHoldingConfig.rightHandPosition;
-        rightHandTarget.localRotation = Quaternion.Euler(currentWeaponHoldingConfig.rightHandRotation);
+    public void SetAimingState(bool value)
+    {
+        IWeapon weapon = characterControlScript.currentWeapon;
+        if (weapon == null) return;
+        Transform weaponTransform = weapon.GetWeaponTransform();
+        if (value)
+        {
+            weaponTransform.parent = pivot;
+            weaponTransform.localPosition = weapon.GetHoldingConfig().posRightShoulderRelative;
+            weaponTransform.localRotation = Quaternion.Euler(weapon.GetHoldingConfig().rotRightShoulderRelative);
+        }
+        else
+        {
+            weaponTransform.parent = animator.GetBoneTransform(HumanBodyBones.RightHand);
+            weaponTransform.localPosition = weapon.GetHoldingConfig().posInRightHand;
+            weaponTransform.localRotation = Quaternion.Euler(weapon.GetHoldingConfig().rotInRightHand);
+        }
     }
 
     void Update()
     {
         if (enableIK)
         {
-            if (characterControlScript.isAiming) rightHandIKWeight = Mathf.Lerp(rightHandIKWeight, 1, Time.deltaTime * characterControlScript.aimingSpeed);
+            if (characterControlScript.isHoldingAim) rightHandIKWeight = Mathf.Lerp(rightHandIKWeight, 1, Time.deltaTime * characterControlScript.aimingSpeed);
             else rightHandIKWeight = 0;
-
-            leftHandTarget.position = leftHandIKTarget.position;
-            leftHandTarget.rotation = leftHandIKTarget.rotation;
 
             if (showDebugInfo)
             {
                 Debug.DrawRay(bulletEmitter.position, bulletEmitter.forward * 20, Color.red);
-                Debug.DrawRay(aimingPivot.position, aimingPivot.forward * 20);
+                Debug.DrawRay(pivot.position, pivot.forward * 20);
             }
+        }
+    }
+
+    private void LateUpdate()
+    {
+        pivot.position = rightShoulder.position;
+        pivot.rotation = Quaternion.Lerp(pivot.rotation, Quaternion.LookRotation(target.position - pivot.position), Time.deltaTime * characterControlScript.aimingSpeed);
+
+        if (characterControlScript.isHoldingAim != holdingStateUpdateFlag)
+        {
+            SetAimingState(characterControlScript.isHoldingAim);
+            holdingStateUpdateFlag = characterControlScript.isHoldingAim;
         }
     }
 
@@ -130,13 +144,9 @@ public class AimingIK : MonoBehaviour
     {
         if (enableIK)
         {
-            aimingPivot.position = rightShoulder.position;
-
-            if (characterControlScript.isAiming)
+            if (characterControlScript.isHoldingAim)
             {
                 animator.SetLookAtWeight(lookWeightAiming, bodyWeightAiming, headWeightAiming);
-
-                aimingPivot.rotation = Quaternion.Slerp(aimingPivot.rotation, Quaternion.LookRotation(characterControlScript.currentAimPoint - aimingPivot.position), Time.deltaTime * characterControlScript.aimingSpeed);
             }
             else
             {
@@ -153,18 +163,6 @@ public class AimingIK : MonoBehaviour
             animator.SetIKRotationWeight(AvatarIKGoal.RightHand, rightHandIKWeight);
             animator.SetIKPosition(AvatarIKGoal.RightHand, rightHandTarget.position);
             animator.SetIKRotation(AvatarIKGoal.RightHand, rightHandTarget.rotation);
-
-            if (characterControlScript.isAiming)
-            {
-                if (Vector3.Distance(bulletEmitter.parent.position, characterControlScript.currentAimPoint) > 1)
-                {
-                    bulletEmitter.parent.rotation = Quaternion.LookRotation(characterControlScript.currentAimPoint - bulletEmitter.parent.position, Vector3.up);
-                }
-                else
-                {
-                    bulletEmitter.parent.localRotation = Quaternion.Euler(characterControlScript.currentWeapon.GetHoldingConfig().weaponOriginalLocalRotation);
-                }
-            }
         }
     }
 }

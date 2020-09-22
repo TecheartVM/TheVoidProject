@@ -4,17 +4,22 @@ using UnityEngine;
 
 public interface IWeapon
 {
-    float GetRecoilStrength();
-
     bool isActive { get; }
+
+    bool IsTwoHanded();
+
+    float GetRecoilStrength();
 
     void SetActive(bool value);
 
-    void Shoot(Vector3 aimPosition, int overrideLayer);
+    void StartFiring();
+    void StopFiring();
 
     void Reload();
 
     WeaponHoldingConfig GetHoldingConfig();
+    Transform GetWeaponTransform();
     Transform GetBulletEmitter();
     Transform GetLeftHandIKTarget();
+    Transform GetRightHandIKTarget();
 }

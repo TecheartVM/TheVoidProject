@@ -7,15 +7,15 @@ using UnityEngine;
 public class ThirdPersonControl : MonoBehaviour
 {
     #region External Objects
-
-    [SerializeField] private Transform mainCamera;
     [SerializeField] private Transform characterSkin;
 
-    private CharacterController controller;
-    private CameraController virtualCamera;
+    private CharacterController characterController;
+    private CameraController cameraController;
+
+    private EntityPlayer playerEntity;
     #endregion
 
-    #region Movement Variables
+    #region Movement System Properties
     [Header("Basic Movements")]
     [SerializeField] private float movementSpeed = 5;
     [SerializeField] private float sprintMultiplier = 1.5f;
@@ -23,26 +23,19 @@ public class ThirdPersonControl : MonoBehaviour
     [SerializeField] private float jumpForce = 14;
     [SerializeField] private float gravityMultiplier = 90;
     [SerializeField] private float jumpCooldownTime = 0.5f;
-
-    [SerializeField] private LayerMask environmentLayer;
     #endregion
 
-    #region Movement Additional Variables
-
+    #region Movement System Variables
     private float verticalMotion = 0;
     private Vector3 movement = Vector3.zero;
-    private Vector3 lookForward, lookRight;
     private Vector3 characterForward, characterRight;
     private float jumpCooldown = 0;
-
-    public float horizontalInputTotal { get; private set; } = 0;
-    public Vector3 cameraLookDirection { get; private set; } = Vector3.zero;
     #endregion
 
-    #region Climbing Variables
-
+    #region Climbing System Properties
     [Header("Climbing System")]
     [SerializeField] private string ledgeTag = "Climb";
+    [SerializeField] private LayerMask environmentLayer;
     [SerializeField] private LayerMask ledgesLayer;
     [SerializeField] private LayerMask wallsAndLedgesLayer;
     [SerializeField] private float climbingSpeed = 7;
@@ -54,67 +47,59 @@ public class ThirdPersonControl : MonoBehaviour
     [SerializeField] [Range(0, 4)] private float maxDistanceBetweenLedges = 2.4f;
     [SerializeField] [Range(0, 1)] private float climbCooldownTime = 0.2f;
     [SerializeField] [Range(1,45)] private float ledgeMaxAngle = 30;
-
     #endregion
 
-    #region Climbing Additional Variables
-
-    public bool isClimbing = false;
+    #region Climbing System Variables
     private float climbCooldown = 0;
     private float angledLedgeCheckOffset = 0;
     private LedgePoint currentLedgePoint = new LedgePoint();
-    private ClimbingStates currentClimbingState = ClimbingStates.Idle;
+    public ClimbingStates currentClimbingState = ClimbingStates.Idle;
     float jumpTime = 0;
-
-
     #endregion
 
-    #region Shooting Variables
-
-    [Header("Shooting")]
+    #region Shooting System Properties
+    [Header("Shooting System")]
     public float aimingMaxDistance = 60;
     [SerializeField] private float aimingMaxAngle = 30;
     public float aimingSpeed = 15;
+    [SerializeField] private float aimingTime = 3;
     [SerializeField] private LayerMask aimableLayer;
 
-    public bool isAiming { get; private set; } = false;
+    public bool debugAimHolding = false;
+    #endregion
 
-    public bool cameraZoom { get; private set; } = false;
-
+    #region Shooting System Variables
     public Vector3 currentAimPoint { get; private set; }
-
-    [SerializeField] private int currentWeaponIndex = 0;
-
     private PlayerWeapons weapons;
+    [SerializeField] private int currentWeaponIndex = 0;
     public IWeapon currentWeapon { get; private set; }
 
-    [SerializeField] private bool debugAim = false;
-
-    public event Action onWeaponSwitched;
-
-    [SerializeField] private float aimingTime = 3;
     private float aimingTimer = 0;
+    #endregion
 
-    private bool holdingWeapon = false;
+    #region Player States
+    public bool isSprinting { get; private set; } = false;
+    public bool isClimbing { get; private set; } = false;
+    public bool isAiming { get; private set; } = false;
+    public bool isHoldingAim { get; private set; } = false;
+    public bool isHoldingWeapon { get; private set; } = false;
 
+    public float horizontalInputTotal { get; private set; } = 0;
+    #endregion
+
+    #region Player Events
+    public event Action onWeaponSwitched;
     #endregion
 
     [SerializeField] private float interactionFieldAngle = 30;
-
-    [SerializeField] private CinemachineVirtualCamera aimingCamera;
-
-    [SerializeField] private int aimCameraPriorityBase = 9;
-    [SerializeField] private int aimCameraPriorityIncrement = 10;
-
-    private EntityPlayer playerEntity;
 
     #region Main 
 
     void Awake()
     {
         playerEntity = GetComponent<EntityPlayer>();
-        controller = GetComponent<CharacterController>();
-        virtualCamera = GetComponent<CameraController>();
+        characterController = GetComponent<CharacterController>();
+        cameraController = GetComponent<CameraController>();
         weapons = GetComponent<PlayerWeapons>();
 
         angledLedgeCheckOffset = climbStep / (1 / Mathf.Tan(ledgeMaxAngle));
@@ -140,14 +125,14 @@ public class ThirdPersonControl : MonoBehaviour
 
     void Update()
     {
-        HandleCamera();
+        isSprinting = Input.GetButton("Sprint") && horizontalInputTotal > 0 && !isAiming && !isClimbing;
+
         if (!isClimbing)
         {
             ControllerMove();
-            if (!controller.isGrounded && climbCooldown <= 0 && !virtualCamera.useZoom) ClimbStartCheck();
+            if (!characterController.isGrounded && climbCooldown <= 0 && !isAiming) ClimbStartCheck();
 
             HandleShooting();
-
             HandleWeaponSwitch();
         }
         else
@@ -163,35 +148,45 @@ public class ThirdPersonControl : MonoBehaviour
         WriteHorizontalMotion();
 
         if (climbCooldown > 0) climbCooldown -= Time.deltaTime;
+
+        if (debugAimHolding) isHoldingAim = true;
     }
 
     #endregion
 
     #region Movement
-
     void ControllerMove()
     {
-        if (controller.isGrounded)
+        if (characterController.isGrounded)
         {
-            movement = (lookForward * Input.GetAxis("Vertical") + lookRight * Input.GetAxis("Horizontal")).normalized * movementSpeed;
+            movement = (cameraController.lookForward * Input.GetAxis("Vertical") + cameraController.lookRight * Input.GetAxis("Horizontal")).normalized * movementSpeed;
             movement = Vector3.ClampMagnitude(movement, movementSpeed);
-            if (virtualCamera.useZoom) movement *= 0.5f;
-            else if (Input.GetButton("Sprint")) movement *= sprintMultiplier;
 
-            RotateSkin(movement);
+            if (isAiming)
+            {
+                movement *= 0.5f;
+            }
+            else
+            {
+                if (isSprinting)
+                {
+                    movement *= sprintMultiplier;
+                    //if (isHoldingAim) DropTarget();
+                }
+            }
+
+            RotateSkin(isHoldingAim && !isSprinting && isHoldingWeapon ? cameraController.lookForward : movement);
         }
         HandleJump();
 
         movement.y = verticalMotion;
 
-        //Debug.DrawRay(transform.position, movement * 10);
-
-        controller.Move(movement * Time.deltaTime);
+        characterController.Move(movement * Time.deltaTime);
     }
 
     void HandleJump()
     {
-        if (controller.isGrounded)
+        if (characterController.isGrounded)
         {
             verticalMotion = 0;
             if (jumpCooldown <= 0)
@@ -227,23 +222,6 @@ public class ThirdPersonControl : MonoBehaviour
     private void WriteHorizontalMotion()
     {
         horizontalInputTotal = Mathf.Clamp(Math.Abs(Input.GetAxis("Vertical")) + Mathf.Abs(Input.GetAxis("Horizontal")), 0, 1);
-    }
-
-    void HandleCamera()
-    {
-        lookForward = mainCamera.forward;
-        lookForward.y = 0;
-
-        lookRight = mainCamera.right;
-        lookRight.y = 0;
-
-        cameraLookDirection = mainCamera.forward;
-    }
-
-    void ResetCamera()
-    {
-        if (aimingCamera != null) aimingCamera.m_Priority = aimCameraPriorityBase;
-        cameraZoom = false;
     }
     #endregion
 
@@ -297,7 +275,7 @@ public class ThirdPersonControl : MonoBehaviour
                         }
                         else
                         {
-                            sidePoint = GetSideLedge(currentLedgePoint.topPoint, movementDirection, (climbJumpForce / gravityMultiplier) * 10, controller.height, maxDistanceBetweenLedges);
+                            sidePoint = GetSideLedge(currentLedgePoint.topPoint, movementDirection, (climbJumpForce / gravityMultiplier) * 10, characterController.height, maxDistanceBetweenLedges);
                             if (sidePoint.topPoint != Vector3.zero)
                             {
                                 //Debug.DrawRay(sidePoint.topPoint, sidePoint.faceNormal, Color.green);
@@ -330,7 +308,7 @@ public class ThirdPersonControl : MonoBehaviour
                 }
                 else
                 {
-                    Vector3 plateauPos = GetPlateauPosition(currentLedgePoint.topPoint, characterForward, controller.radius + movementSpeed * 0.02f);
+                    Vector3 plateauPos = GetPlateauPosition(currentLedgePoint.topPoint, characterForward, characterController.radius + movementSpeed * 0.02f);
                     if (plateauPos != Vector3.zero && Input.GetButtonDown("Vertical"))
                     {
                         transform.position = plateauPos;
@@ -366,14 +344,14 @@ public class ThirdPersonControl : MonoBehaviour
     void ClimbStartCheck()
     {
         RaycastHit hit;
-        if (Physics.CapsuleCast(transform.position + Vector3.up * controller.radius * 2, transform.position + Vector3.up * controller.height, controller.radius, characterForward, out hit, ledgeCheckForwardDistance, ledgesLayer))
+        if (Physics.CapsuleCast(transform.position + Vector3.up * characterController.radius * 2, transform.position + Vector3.up * characterController.height, characterController.radius, characterForward, out hit, ledgeCheckForwardDistance, ledgesLayer))
         {
             Vector3 ledgeTopPoint = GetLedgeTopPoint(hit.point - hit.normal * 0.05f);
             Vector3 ledgeFaceNormal = GetLedgeFaceNormal(ledgeTopPoint);
 
             Vector3 characterTargetPos = GetCharacterPosOnLedge(ledgeTopPoint, ledgeFaceNormal);
-            characterTargetPos += Vector3.up * controller.radius;
-            if (!Physics.CheckCapsule(characterTargetPos, characterTargetPos + Vector3.up * controller.height, controller.radius, environmentLayer))
+            characterTargetPos += Vector3.up * characterController.radius;
+            if (!Physics.CheckCapsule(characterTargetPos, characterTargetPos + Vector3.up * characterController.height, characterController.radius, environmentLayer))
             {
                 LedgePoint correctPoint = GetNonEdgeLedgePoint(ledgeTopPoint, ledgeFaceNormal, characterSkin.up, climbStep * 1.5f, characterToLedgeDistance);
                 ledgeTopPoint = correctPoint.topPoint;
@@ -388,8 +366,6 @@ public class ThirdPersonControl : MonoBehaviour
     {
         SwitchWeapon(0);
         DropTarget();
-        AimingTick(false);
-        ResetCamera();
 
         movement = Vector3.zero;
 
@@ -500,7 +476,7 @@ public class ThirdPersonControl : MonoBehaviour
         //Debug.DrawRay(checkStartPos + Vector3.up * (controller.height + checkUpOffset), checkDirection * maxDistanceToLedge, Color.blue);
 
         RaycastHit hit;
-        if(Physics.CapsuleCast(checkStartPos + Vector3.up * controller.radius, checkStartPos + Vector3.up * (controller.height - controller.radius + checkUpOffset), controller.radius, checkDirection, out hit, maxDistanceToLedge, wallsAndLedgesLayer))
+        if(Physics.CapsuleCast(checkStartPos + Vector3.up * characterController.radius, checkStartPos + Vector3.up * (characterController.height - characterController.radius + checkUpOffset), characterController.radius, checkDirection, out hit, maxDistanceToLedge, wallsAndLedgesLayer))
         {
             if (hit.transform.tag != ledgeTag)
             {
@@ -537,7 +513,7 @@ public class ThirdPersonControl : MonoBehaviour
         //Debug.DrawRay(checkStartPos + Vector3.up * (controller.height + checkUpOffset), -characterForward * maxDistanceToLedge, Color.blue);
 
         RaycastHit hit;
-        if(Physics.CapsuleCast(checkStartPos + Vector3.up * (controller.radius - checkDownOffset), checkStartPos + Vector3.up * (controller.height - controller.radius + checkUpOffset), controller.radius, -characterForward, out hit, maxDistanceToLedge, wallsAndLedgesLayer))
+        if(Physics.CapsuleCast(checkStartPos + Vector3.up * (characterController.radius - checkDownOffset), checkStartPos + Vector3.up * (characterController.height - characterController.radius + checkUpOffset), characterController.radius, -characterForward, out hit, maxDistanceToLedge, wallsAndLedgesLayer))
         {
             if (hit.transform.tag == ledgeTag)
             {
@@ -590,7 +566,7 @@ public class ThirdPersonControl : MonoBehaviour
             Vector3 ledgeTopPoint = GetLedgeTopPoint(hit.point - hit.normal * 0.05f);
             Vector3 characterTargetPos = GetCharacterPosOnLedge(ledgeTopPoint, hit.normal);
 
-            if (!Physics.CheckCapsule(characterTargetPos, characterTargetPos + Vector3.up * controller.height, controller.radius, environmentLayer))
+            if (!Physics.CheckCapsule(characterTargetPos, characterTargetPos + Vector3.up * characterController.height, characterController.radius, environmentLayer))
             {
                 LedgePoint correctPoint = GetNonEdgeLedgePoint(ledgeTopPoint, hit.normal, characterSkin.up, climbStep, distanceToLedge);
 
@@ -615,7 +591,7 @@ public class ThirdPersonControl : MonoBehaviour
             newLedgePoint = GetLedgeTopPoint(newLedgePoint);
             
             Vector3 characterTargetPos = GetCharacterPosOnLedge(newLedgePoint, hit.normal);
-            if (!Physics.CheckCapsule(characterTargetPos, characterTargetPos + Vector3.up * controller.height, controller.radius, environmentLayer))
+            if (!Physics.CheckCapsule(characterTargetPos, characterTargetPos + Vector3.up * characterController.height, characterController.radius, environmentLayer))
             {
                 return new LedgePoint(newLedgePoint, hit.normal);
             }
@@ -656,9 +632,9 @@ public class ThirdPersonControl : MonoBehaviour
     Vector3 GetPlateauPosition(Vector3 ledgeTopPoint, Vector3 checkDirection, float distanceFromEdge)
     {
         RaycastHit hit;
-        if(Physics.Raycast(ledgeTopPoint + checkDirection * distanceFromEdge + Vector3.up, Vector3.down, out hit, controller.height, environmentLayer))
+        if(Physics.Raycast(ledgeTopPoint + checkDirection * distanceFromEdge + Vector3.up, Vector3.down, out hit, characterController.height, environmentLayer))
         {
-            if(!Physics.CheckCapsule(hit.point + Vector3.up * (controller.radius + 0.01f), hit.point + Vector3.up * (controller.height - controller.radius), controller.radius, environmentLayer))
+            if(!Physics.CheckCapsule(hit.point + Vector3.up * (characterController.radius + 0.01f), hit.point + Vector3.up * (characterController.height - characterController.radius), characterController.radius, environmentLayer))
             {
                 //Debug.DrawRay(hit.point, hit.normal, Color.green, 3);
                 return hit.point + Vector3.up * 0.01f;
@@ -702,8 +678,6 @@ public class ThirdPersonControl : MonoBehaviour
 
         while (Vector3.Distance(transform.position, finalTarget) > 0.05f && !(useCurve && this.jumpTime <= 0))
         {
-            if (!isClimbing) break;
-
             RotateSkin(-targetNormal);
 
             //transform.position = Vector3.Slerp(transform.position, finalTarget, Time.deltaTime * movementSpeed);
@@ -719,6 +693,8 @@ public class ThirdPersonControl : MonoBehaviour
                 transform.position = Vector3.MoveTowards(transform.position, transform.position + velocity, velocity.magnitude * Time.deltaTime);
                 velocity -= Vector3.up * gravityMultiplier * Time.deltaTime;
             }
+
+            if (!isClimbing) break;
 
             yield return null;
         }
@@ -778,107 +754,71 @@ public class ThirdPersonControl : MonoBehaviour
     #region Shooting
     private void HandleShooting()
     {
-        if (holdingWeapon)
+        if (Input.GetButton("Aim") || Input.GetButton("Fire"))
         {
-            AimingTick(Input.GetButton("Aim") || debugAim);
-
-            if (Input.GetButton("Fire"))
+            if(isHoldingWeapon) TakeAim();
+            else
             {
-                TakeAim();
-                Shoot();
-            }
-
-            if (Input.GetButtonDown("Reload Weapon"))
-            {
-                Reload();
-                DropTarget();
+                if(weapons != null && weapons.weaponsList.Count > 1)
+                {
+                    SwitchWeapon(1);
+                }
             }
         }
-        else
+
+        if (isHoldingWeapon)
         {
             if (Input.GetButtonDown("Aim"))
             {
-                if (weapons.weaponsList.Count > 1)
-                {
-                    SwitchWeapon(1);
-                    if (!debugAim && !isClimbing)
-                    {
-                        if (aimingCamera != null) aimingCamera.m_Priority = aimCameraPriorityBase + aimCameraPriorityIncrement;
-                        cameraZoom = true;
-                    }
-                }
+                isAiming = true;
             }
-            else if (Input.GetButton("Fire"))
+
+            if (Input.GetButtonDown("Fire"))
             {
-                if (weapons.weaponsList.Count > 1)
-                {
-                    SwitchWeapon(1);
-                }
+                currentWeapon.StartFiring();
+            }
+
+            if(Input.GetButtonDown("Reload"))
+            {
+                DropTarget();
+                currentWeapon.Reload();
             }
         }
-    }
 
-    void Reload()
-    {
-        currentWeapon.Reload();
-    }
+        if (Input.GetButtonUp("Aim"))
+        {
+            isAiming = false;
+        }
 
-    void Shoot()
-    {
-        currentWeapon.Shoot(currentAimPoint, LayerMask.GetMask("Enemy"));
+        if (Input.GetButtonUp("Fire"))
+        {
+            currentWeapon.StopFiring();
+        }
+
+        if(isHoldingAim && isHoldingWeapon)
+        {
+            HoldAim();
+            aimingTimer -= Time.deltaTime;
+            if (aimingTimer <= 0) isHoldingAim = false;
+        }
     }
 
     void TakeAim()
     {
         aimingTimer = aimingTime;
-        if (!isAiming) isAiming = true;
-        HoldAim();
+        if (!isHoldingAim) isHoldingAim = true;
     }
 
     void HoldAim()
     {
         currentAimPoint = GetAimPoint();
-        if (Mathf.Abs(Vector3.Angle(Maths.GetVectorIgnoreY(currentAimPoint - transform.position), characterForward)) > aimingMaxAngle) RotateSkin(lookForward);
+        if (Mathf.Abs(Vector3.Angle(Maths.GetVectorIgnoreY(currentAimPoint - transform.position), characterForward)) > aimingMaxAngle) RotateSkin(cameraController.lookForward);
     }
 
     void DropTarget()
     {
         aimingTimer = 0;
-        isAiming = false;
-    }
-
-    void AimingTick(bool aimingInput)
-    {
-        if (aimingInput) TakeAim();
-
-        if (aimingTimer > 0)
-        {
-            HoldAim();
-            if (!aimingInput)
-            {
-                aimingTimer -= Time.deltaTime;
-            }
-        }
-        else if (isAiming)
-        {
-            isAiming = false;
-        }
-    }
-
-    private Vector3 GetAimPoint(Vector3 raycastOrigin, Vector3 raycastDirection, float distance, int layerMask)
-    {
-        RaycastHit hit;
-        if(Physics.Raycast(raycastOrigin, raycastDirection, out hit, distance, layerMask))
-        {
-            //Debug.DrawRay(hit.point, hit.normal, Color.magenta, 2);
-            return hit.point;
-        }
-        return raycastOrigin + raycastDirection * distance;
-    }
-
-    public Vector3 GetAimPoint()
-    {
-        return GetAimPoint(mainCamera.position, mainCamera.forward, aimingMaxDistance, aimableLayer);
+        isHoldingAim = false;
     }
 
     void HandleWeaponSwitch()
@@ -913,33 +853,46 @@ public class ThirdPersonControl : MonoBehaviour
             currentWeapon = nextWeaponObj.GetComponent<IWeapon>();
             if (currentWeapon != null)
             {
-                holdingWeapon = true;
+                isHoldingWeapon = true;
                 currentWeapon.SetActive(true);
             }
             else
             {
-                holdingWeapon = false;
+                aimingTimer = 0;
+                isHoldingAim = false;
+                isHoldingWeapon = false;
             }
         }
         else
         {
-            holdingWeapon = false;
+            aimingTimer = 0;
+            isHoldingAim = false;
+            isHoldingWeapon = false;
             currentWeapon = null;
         }
 
         if (onWeaponSwitched != null) onWeaponSwitched();
     }
 
+    private Vector3 GetAimPoint(Vector3 raycastOrigin, Vector3 raycastDirection, float distance, int layerMask)
+    {
+        RaycastHit hit;
+        if(Physics.Raycast(raycastOrigin, raycastDirection, out hit, distance, layerMask))
+        {
+            return hit.point;
+        }
+        return raycastOrigin + raycastDirection * distance;
+    }
+
+    public Vector3 GetAimPoint()
+    {
+        return GetAimPoint(cameraController.mainCamera.position, cameraController.mainCamera.forward, aimingMaxDistance, aimableLayer);
+    }
     #endregion
 
     public float GetInteractionFieldAngle()
     {
         return interactionFieldAngle;
-    }
-
-    public Transform GetCameraTransform()
-    {
-        return mainCamera;
     }
 
     public void Kill()

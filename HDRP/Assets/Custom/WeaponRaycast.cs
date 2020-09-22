@@ -9,6 +9,7 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
     #region External Objects
     public WeaponHoldingConfig holdingConfig;
     public Transform leftHandIKTarget;
+    public Transform rightHandIKTarget;
     public Transform bulletEmitter;
     [SerializeField] protected GameObject bulletPrefab;
     [SerializeField] protected GameObject muzzlePrefab;
@@ -26,6 +27,7 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
     [SerializeField] protected int magazineSize = 30;
     [SerializeField] protected float recoilStrength = 1;
 
+    [SerializeField] protected bool isTwoHanded = true;
     [SerializeField] protected bool isAutomatic = true;
     [SerializeField] protected bool infiniteAmmo = false;
     #endregion
@@ -48,12 +50,17 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
     #endregion
 
     #region IWeapon
+    public bool isActive { get; private set; }
+
+    public bool IsTwoHanded()
+    {
+        return isTwoHanded;
+    }
+
     public float GetRecoilStrength()
     {
         return recoilStrength;
     }
-
-    public bool isActive { get; private set; }
 
     public void Reload()
     {
@@ -64,9 +71,9 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
     {
         if (value)
         {
-            transform.parent = activeWeaponHolder;
-            transform.localPosition = holdingConfig.weaponOriginalLocalPosition;
-            transform.localRotation = Quaternion.Euler(holdingConfig.weaponOriginalLocalRotation);
+            //transform.parent = activeWeaponHolder;
+            //transform.localPosition = holdingConfig.weaponOriginalLocalPosition;
+            //transform.localRotation = Quaternion.Euler(holdingConfig.weaponOriginalLocalRotation);
             UpdateUIText();
         }
         else
@@ -91,6 +98,16 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
         }
     }
 
+    public void StartFiring()
+    {
+
+    }
+
+    public void StopFiring()
+    {
+
+    }
+
     public WeaponHoldingConfig GetHoldingConfig()
     {
         return holdingConfig;
@@ -104,6 +121,11 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
     public Transform GetLeftHandIKTarget()
     {
         return leftHandIKTarget;
+    }
+
+    public Transform GetRightHandIKTarget()
+    {
+        return rightHandIKTarget;
     }
     #endregion
 
@@ -119,4 +141,10 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
     {
         if (ammoDisplayField != null) ammoDisplayField.text = $"⋮ {currentBulletCount}/{magazineSize}";
     }
+
+    public Transform GetWeaponTransform()
+    {
+        return transform;
+    }
+
 }

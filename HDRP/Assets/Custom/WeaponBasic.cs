@@ -8,6 +8,7 @@ public class WeaponBasic : MonoBehaviour, IWeapon
     #region External Objects
     public WeaponHoldingConfig holdingConfig;
     public Transform leftHandIKTarget;
+    public Transform rightHandIKTarget;
     public Transform bulletEmitter;
     [SerializeField] protected GameObject bulletPrefab;
     [SerializeField] protected GameObject muzzlePrefab;
@@ -26,6 +27,7 @@ public class WeaponBasic : MonoBehaviour, IWeapon
     [SerializeField] protected int magazineSize = 30;
     [SerializeField] protected float recoilStrength = 1;
 
+    [SerializeField] protected bool isTwoHanded = false;
     [SerializeField] protected bool isAutomatic = true;
     [SerializeField] protected bool infiniteAmmo = false;
 
@@ -54,20 +56,25 @@ public class WeaponBasic : MonoBehaviour, IWeapon
     #endregion
 
     #region IWeapon
+    public bool isActive { get; private set; } = false;
+
+    public bool IsTwoHanded()
+    {
+        return isTwoHanded;
+    }
+
     public float GetRecoilStrength()
     {
         return recoilStrength;
     }
 
-    public bool isActive { get; private set; } = false;
-
     public void SetActive(bool value)
     {
         if (value)
         {
-            transform.parent = activeWeaponHolder;
-            transform.localPosition = holdingConfig.weaponOriginalLocalPosition;
-            transform.localRotation = Quaternion.Euler(holdingConfig.weaponOriginalLocalRotation);
+            //transform.parent = activeWeaponHolder;
+            //transform.localPosition = holdingConfig.weaponOriginalLocalPosition;
+            //transform.localRotation = Quaternion.Euler(holdingConfig.weaponOriginalLocalRotation);
             UpdateUIText();
         }
         else
@@ -79,21 +86,14 @@ public class WeaponBasic : MonoBehaviour, IWeapon
         isActive = value;
     }
 
-    public void Shoot(Vector3 aimPosition, int overrideLayer)
+    public void StartFiring()
     {
-        if (bulletCount <= 0) return;
 
-        if (isAutomatic || (!isAutomatic && !shotCooldown))
-        {
-            if (nextBulletTime <= 0)
-            {
-                StartCoroutine(HandleShot(aimPosition, overrideLayer));
-                if(!infiniteAmmo) currentBulletCount--;
-                nextBulletTime = 1 / fireRate;
-            }
-        }
+    }
 
-        if(!isAutomatic) shotCooldown = true;
+    public void StopFiring()
+    {
+
     }
 
     public void Reload()
@@ -115,6 +115,16 @@ public class WeaponBasic : MonoBehaviour, IWeapon
     {
         return leftHandIKTarget;
     }
+
+    public Transform GetRightHandIKTarget()
+    {
+        return rightHandIKTarget;
+    }
+    
+    public Transform GetWeaponTransform()
+    {
+        return transform;
+    }
     #endregion
 
     #region Main
@@ -130,6 +140,23 @@ public class WeaponBasic : MonoBehaviour, IWeapon
 
     }
     #endregion
+
+    public void Shoot(Vector3 aimPosition, int overrideLayer)
+    {
+        if (bulletCount <= 0) return;
+
+        if (isAutomatic || (!isAutomatic && !shotCooldown))
+        {
+            if (nextBulletTime <= 0)
+            {
+                StartCoroutine(HandleShot(aimPosition, overrideLayer));
+                if(!infiniteAmmo) currentBulletCount--;
+                nextBulletTime = 1 / fireRate;
+            }
+        }
+
+        if(!isAutomatic) shotCooldown = true;
+    }
 
     protected float GetTimeToHit(Vector3 hitPoint, float bulletSpeed)
     {
