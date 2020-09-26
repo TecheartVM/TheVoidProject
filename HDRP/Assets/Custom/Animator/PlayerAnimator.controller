@@ -255,7 +255,7 @@ AnimatorState:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Jump
-  m_Speed: 1
+  m_Speed: 1.2
   m_CycleOffset: 0
   m_Transitions:
   - {fileID: 2105667881108719406}
@@ -346,6 +346,12 @@ AnimatorController:
     m_DefaultBool: 0
     m_Controller: {fileID: 0}
   - m_Name: jumpFromWall
+    m_Type: 9
+    m_DefaultFloat: 0
+    m_DefaultInt: 0
+    m_DefaultBool: 0
+    m_Controller: {fileID: 0}
+  - m_Name: jump
     m_Type: 9
     m_DefaultFloat: 0
     m_DefaultInt: 0
@@ -623,14 +629,14 @@ BlendTree:
   m_Name: Blend Tree
   m_Childs:
   - serializedVersion: 2
-    m_Motion: {fileID: -203655887218126122, guid: dc3c9b6c0dee4604aa01c39080ada9ec,
+    m_Motion: {fileID: -203655887218126122, guid: f8c5fa4037251fc4a8a1749642d027fe,
       type: 3}
     m_Threshold: -1
     m_Position: {x: 0, y: 0}
     m_TimeScale: 1.8
-    m_CycleOffset: 0.5
+    m_CycleOffset: 0
     m_DirectBlendParameter: leftFootIKWeight
-    m_Mirror: 1
+    m_Mirror: 0
   - serializedVersion: 2
     m_Motion: {fileID: -203655887218126122, guid: bae4e1a7f5dbc2e4ebf152d7ce6c8b3d,
       type: 3}
@@ -691,8 +697,8 @@ AnimatorStateTransition:
   m_PrefabAsset: {fileID: 0}
   m_Name: 
   m_Conditions:
-  - m_ConditionMode: 3
-    m_ConditionEvent: jumpInput
+  - m_ConditionMode: 1
+    m_ConditionEvent: jump
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -1106133118830672112}

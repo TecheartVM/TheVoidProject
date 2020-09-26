@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0, g: 0, b: 0, a: 1}
+  m_IndirectSpecularColor: {r: 32.73761, g: 40.556973, b: 53.679367, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -213,7 +213,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 32799256}
   m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 28.163326, y: 0, z: 1.1093338}
+  m_LocalPosition: {x: 31.796663, y: 0, z: 1.1093338}
   m_LocalScale: {x: 0.10000005, y: 1, z: 10}
   m_Children: []
   m_Father: {fileID: 641782292}
@@ -879,7 +879,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 164187607}
   m_LocalRotation: {x: -0, y: 1, z: -0, w: 0}
-  m_LocalPosition: {x: 32.793327, y: 0, z: 1.5633335}
+  m_LocalPosition: {x: 36.426662, y: 0, z: 1.5633335}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 641782292}
@@ -1071,7 +1071,49 @@ MonoBehaviour:
   m_GameObject: {fileID: 166748218}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9877a50dcb87ea745910c8a2cd95482a, type: 3}
+  m_Script: {fileID: 11500000, guid: 180ecf9b41d478f468eb3e9083753217, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_ImpulseDefinition:
+    m_ImpulseChannel: 1
+    m_RawSignal: {fileID: 11400000, guid: 2af6e4d28e22bdb4d95b3cb323777437, type: 2}
+    m_AmplitudeGain: 1
+    m_FrequencyGain: 1
+    m_RepeatMode: 0
+    m_Randomize: 1
+    m_TimeEnvelope:
+      m_AttackShape:
+        serializedVersion: 2
+        m_Curve: []
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      m_DecayShape:
+        serializedVersion: 2
+        m_Curve: []
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      m_AttackTime: 0.03
+      m_SustainTime: 0.2
+      m_DecayTime: 0.7
+      m_ScaleWithImpact: 1
+      m_HoldForever: 0
+    m_ImpactRadius: 10
+    m_DirectionMode: 0
+    m_DissipationMode: 2
+    m_DissipationDistance: 1000
+    m_PropagationSpeed: 343
+--- !u!114 &166748221
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 166748218}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a3bb8a04473f7940a1f188a3a96dcc2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   holdingConfig: {fileID: 11400000, guid: ab7011c555646a740850411b0cd81f8e, type: 2}
@@ -1086,17 +1128,13 @@ MonoBehaviour:
   activeWeaponHolder: {fileID: 1849150259}
   inactiveWeaponHolder: {fileID: 1407635663}
   ammoDisplayField: {fileID: 212957116}
-  bulletSpeed: 100
   bulletDamage: 3
-  fireRate: 4
+  fireRate: 3
   magazineSize: 10
-  recoilStrength: 1
+  recoilStrength: 7
   isTwoHanded: 0
   isAutomatic: 0
   infiniteAmmo: 0
-  bulletLifeTime: 3
-  muzzleLifeTime: 1
-  bulletCount: 0
 --- !u!1 &180151327
 GameObject:
   m_ObjectHideFlags: 0
@@ -1107,6 +1145,7 @@ GameObject:
   m_Component:
   - component: {fileID: 180151329}
   - component: {fileID: 180151328}
+  - component: {fileID: 180151330}
   m_Layer: 0
   m_Name: VirtualCameraMain
   m_TagString: Untagged
@@ -1171,6 +1210,21 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 19
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &180151330
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 180151327}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00b2d199b96b516448144ab30fb26aed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_ChannelMask: 1
+  m_Gain: 1
+  m_Use2DDistance: 0
 --- !u!115 &185099257
 MonoScript:
   m_ObjectHideFlags: 0
@@ -1484,7 +1538,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 343941573}
   m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: 28.163328, y: 0, z: 2.015667}
+  m_LocalPosition: {x: 31.796665, y: 0, z: 2.015667}
   m_LocalScale: {x: 0.10000005, y: 1, z: 10}
   m_Children: []
   m_Father: {fileID: 641782292}
@@ -1659,6 +1713,36 @@ Transform:
   m_Father: {fileID: 641782292}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+--- !u!1 &361401979
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 361401980}
+  m_Layer: 0
+  m_Name: RightHandIKTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &361401980
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 361401979}
+  m_LocalRotation: {x: -0.000022458586, y: 0.00004076725, z: -0.70673865, w: 0.70747477}
+  m_LocalPosition: {x: 0.045, y: -0.065, z: -0.324}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 7548558761918258581}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0.001, y: 0.005, z: -89.94}
 --- !u!4 &364220192 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6473791464006618733, guid: 3ca24ddf8603be94a9341895c06f99b8,
@@ -2646,7 +2730,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 610837862}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 23.366665, y: 0, z: 1.5633335}
+  m_LocalPosition: {x: 27, y: 0, z: 1.5633335}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 641782292}
@@ -11491,6 +11575,7 @@ MonoBehaviour:
   climbMoveVariable: climbInput
   climbIdleVariable: climb
   aimingVariable: aimingInput
+  jumpTrigger: jump
   jumpFromWallTrigger: jumpFromWall
 --- !u!4 &2007963425 stripped
 Transform:
@@ -11805,6 +11890,9 @@ MonoBehaviour:
   runFOV: 80
   fOVChangeSpeed: 15
   sideSwitchSpeed: 15
+  recoilDuration: 0.1
+  recoilMultiplierVertical: 0.1
+  recoilMultiplierHorizontal: 0.5
   additionalVirtualCameras: []
   cameraStartPriority: 10
   cameraPriorityIncrement: 10
@@ -12091,52 +12179,52 @@ PrefabInstance:
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.66807824
+      value: 0.45636544
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.11063387
+      value: -0.10224632
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0.7305815
+      value: 0.8801601
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.08764908
+      value: 0.08120669
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.0618
+      value: -0.069
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.0642
+      value: -0.088
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.2437
+      value: 0.008
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: 16.187
+      value: 14.721
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 85.05
+      value: 54.434
       objectReference: {fileID: 0}
     - target: {fileID: 5248173533602524861, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: 181.17899
+      value: 177.059
       objectReference: {fileID: 0}
     - target: {fileID: 5593438899385113710, guid: 7e389defcbf3d974089c14e33767688c,
         type: 3}
@@ -12251,7 +12339,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   holdingConfig: {fileID: 11400000, guid: 2602b23a678c78344a0c033db81f3697, type: 2}
   leftHandIKTarget: {fileID: 1376950780}
-  rightHandIKTarget: {fileID: 0}
+  rightHandIKTarget: {fileID: 361401980}
   bulletEmitter: {fileID: 1714092266}
   bulletPrefab: {fileID: 0}
   muzzlePrefab: {fileID: 0}
@@ -12263,10 +12351,58 @@ MonoBehaviour:
   bulletDamage: 1
   fireRate: 10
   magazineSize: 30
-  recoilStrength: 1
+  recoilStrength: 3
   isTwoHanded: 1
   isAutomatic: 1
   infiniteAmmo: 0
+--- !u!4 &7548558761918258581 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8786174417068317155, guid: 7e389defcbf3d974089c14e33767688c,
+    type: 3}
+  m_PrefabInstance: {fileID: 7548558761918258578}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7548558761918258582
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7548558761918258579}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 180ecf9b41d478f468eb3e9083753217, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_ImpulseDefinition:
+    m_ImpulseChannel: 1
+    m_RawSignal: {fileID: 11400000, guid: 2af6e4d28e22bdb4d95b3cb323777437, type: 2}
+    m_AmplitudeGain: 1
+    m_FrequencyGain: 1
+    m_RepeatMode: 0
+    m_Randomize: 1
+    m_TimeEnvelope:
+      m_AttackShape:
+        serializedVersion: 2
+        m_Curve: []
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      m_DecayShape:
+        serializedVersion: 2
+        m_Curve: []
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      m_AttackTime: 0.03
+      m_SustainTime: 0.2
+      m_DecayTime: 0.5
+      m_ScaleWithImpact: 1
+      m_HoldForever: 0
+    m_ImpactRadius: 10
+    m_DirectionMode: 0
+    m_DissipationMode: 2
+    m_DissipationDistance: 1000
+    m_PropagationSpeed: 343
 --- !u!1001 &8602765113293854147
 PrefabInstance:
   m_ObjectHideFlags: 0

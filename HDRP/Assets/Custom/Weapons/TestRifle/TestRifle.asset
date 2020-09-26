@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f65b99dd83d8ff4a9c2ea960c8dc1df, type: 3}
   m_Name: TestRifle
   m_EditorClassIdentifier: 
-  rightHandPosition: {x: 0.177, y: -0.118, z: 0.249}
-  rightHandRotation: {x: 0.524, y: -21.663, z: -88.68101}
-  weaponOriginalLocalPosition: {x: 0.303, y: 0.022, z: 0.073}
-  weaponOriginalLocalRotation: {x: -16.864, y: 90, z: 90}
-  inactiveWeaponPosition: {x: 0, y: 0, z: 0}
-  inactiveWeaponRotation: {x: 0, y: 0, z: 0}
+  posInRightHand: {x: 0.307, y: 0.008, z: 0.01}
+  rotInRightHand: {x: -10.812, y: 106.650986, z: 86.535}
+  posRightShoulderRelative: {x: 0.092, y: -0.006, z: 0.54}
+  rotRightShoulderRelative: {x: 0.001973083, y: 0.28189513, z: 0.0001708606}
+  posInactive: {x: 0, y: 0, z: 0}
+  rotInactive: {x: 0, y: 0, z: 0}

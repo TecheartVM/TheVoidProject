@@ -9,7 +9,7 @@ public class ThirdPersonControl : MonoBehaviour
     #region External Objects
     [SerializeField] private Transform characterSkin;
 
-    private CharacterController characterController;
+    public CharacterController characterController { get; private set; }
     private CameraController cameraController;
 
     private EntityPlayer playerEntity;
@@ -29,7 +29,7 @@ public class ThirdPersonControl : MonoBehaviour
     private float verticalMotion = 0;
     private Vector3 movement = Vector3.zero;
     private Vector3 characterForward, characterRight;
-    private float jumpCooldown = 0;
+    public float jumpCooldown { get; private set; } = 0;
     #endregion
 
     #region Climbing System Properties
@@ -83,18 +83,20 @@ public class ThirdPersonControl : MonoBehaviour
     public bool isAiming { get; private set; } = false;
     public bool isHoldingAim { get; private set; } = false;
     public bool isHoldingWeapon { get; private set; } = false;
+    public bool isShooting { get; private set; } = false;
+    public bool edgeReached { get; private set; } = false;
 
     public float horizontalInputTotal { get; private set; } = 0;
     #endregion
 
     #region Player Events
+    public event Action onJump;
     public event Action onWeaponSwitched;
     #endregion
 
     [SerializeField] private float interactionFieldAngle = 30;
 
     #region Main 
-
     void Awake()
     {
         playerEntity = GetComponent<EntityPlayer>();
@@ -125,7 +127,7 @@ public class ThirdPersonControl : MonoBehaviour
 
     void Update()
     {
-        isSprinting = Input.GetButton("Sprint") && horizontalInputTotal > 0 && !isAiming && !isClimbing;
+        isSprinting = Input.GetButton("Sprint") && horizontalInputTotal > 0 && !isAiming && !(isShooting && currentWeapon.IsTwoHanded()) && !isClimbing;
 
         if (!isClimbing)
         {
@@ -171,7 +173,7 @@ public class ThirdPersonControl : MonoBehaviour
                 if (isSprinting)
                 {
                     movement *= sprintMultiplier;
-                    //if (isHoldingAim) DropTarget();
+                    if (isHoldingAim && currentWeapon.IsTwoHanded()) DropTarget();
                 }
             }
 
@@ -195,6 +197,7 @@ public class ThirdPersonControl : MonoBehaviour
                 {
                     verticalMotion = jumpForce;
                     jumpCooldown = jumpCooldownTime;
+                    if (onJump != null) onJump();
                 }
             }
             else
@@ -232,7 +235,7 @@ public class ThirdPersonControl : MonoBehaviour
 
         if (currentClimbingState != ClimbingStates.Jumping)
         {
-            if (Input.GetAxis("Horizontal") != 0)
+            if (Input.GetButton("Horizontal"))
             {
                 Vector3 playerPos = transform.position;
                 playerPos.y = currentLedgePoint.topPoint.y;
@@ -248,7 +251,12 @@ public class ThirdPersonControl : MonoBehaviour
                     if (sidePoint.topPoint != Vector3.zero)
                     {
                         //Debug.DrawRay(sidePoint.topPoint, sidePoint.faceNormal, Color.green, 3);
-                        StartCoroutine(MoveCharacterToPoint(sidePoint.topPoint, sidePoint.faceNormal, climbingSpeed, false));
+                        edgeReached = false;
+                        StartCoroutine(MoveCharacterToPoint(sidePoint.topPoint, sidePoint.faceNormal, climbingSpeed, false, true));
+                    }
+                    else
+                    {
+                        edgeReached = true;
                     }
                 }
                 //no wall on the way
@@ -259,6 +267,7 @@ public class ThirdPersonControl : MonoBehaviour
 
                     if (sidePoint.topPoint != Vector3.zero)
                     {
+                        edgeReached = false;
                         MoveCharacterAlongLedge(sidePoint.topPoint, sidePoint.faceNormal, climbingSpeed * Mathf.Abs(Input.GetAxis("Horizontal")));
                     }
                     //can't move along the ledge
@@ -271,10 +280,13 @@ public class ThirdPersonControl : MonoBehaviour
                         if (sidePoint.topPoint != Vector3.zero)
                         {
                             //Debug.DrawRay(sidePoint.topPoint, sidePoint.faceNormal, Color.green, 3);
-                            StartCoroutine(MoveCharacterToPoint(sidePoint.topPoint, sidePoint.faceNormal, climbingSpeed, false));
+                            edgeReached = false;
+                            StartCoroutine(MoveCharacterToPoint(sidePoint.topPoint, sidePoint.faceNormal, climbingSpeed, false, true));
                         }
                         else
                         {
+                            edgeReached = true;
+
                             sidePoint = GetSideLedge(currentLedgePoint.topPoint, movementDirection, (climbJumpForce / gravityMultiplier) * 10, characterController.height, maxDistanceBetweenLedges);
                             if (sidePoint.topPoint != Vector3.zero)
                             {
@@ -282,7 +294,7 @@ public class ThirdPersonControl : MonoBehaviour
 
                                 if (Input.GetButtonDown("Jump") && jumpCooldown <= 0)
                                 {
-                                    StartCoroutine(MoveCharacterToPoint(sidePoint.topPoint, sidePoint.faceNormal, climbJumpForce, true));
+                                    StartCoroutine(MoveCharacterToPoint(sidePoint.topPoint, sidePoint.faceNormal, climbJumpForce * 0.2f, true, true));
                                     jumpCooldown = jumpCooldownTime;
                                 }
                             }
@@ -302,7 +314,7 @@ public class ThirdPersonControl : MonoBehaviour
 
                     if (Input.GetButtonDown("Jump") && jumpCooldown <= 0)
                     { 
-                        StartCoroutine(MoveCharacterToPoint(upperLedge.topPoint, upperLedge.faceNormal, climbJumpForce, true));
+                        StartCoroutine(MoveCharacterToPoint(upperLedge.topPoint, upperLedge.faceNormal, climbJumpForce, true, true));
                         jumpCooldown = jumpCooldownTime;
                     }
                 }
@@ -327,7 +339,7 @@ public class ThirdPersonControl : MonoBehaviour
 
                     if (Input.GetButtonDown("Jump") && jumpCooldown <= 0)
                     {
-                        StartCoroutine(MoveCharacterToPoint(backwardLedge.topPoint, backwardLedge.faceNormal, climbJumpForce, true));
+                        AnimationHandler.WaitForAnimation(0, MoveCharacterToPoint(backwardLedge.topPoint, backwardLedge.faceNormal, 1, true, false));
                         jumpCooldown = jumpCooldownTime;
                     }
                 }
@@ -370,7 +382,7 @@ public class ThirdPersonControl : MonoBehaviour
         movement = Vector3.zero;
 
         isClimbing = true;
-        StartCoroutine(MoveCharacterToPoint(ledgePoint, ledgeFaceNormal, jumpForce, false));
+        StartCoroutine(MoveCharacterToPoint(ledgePoint, ledgeFaceNormal, jumpForce, false, true));
         currentLedgePoint = new LedgePoint(ledgePoint, ledgeFaceNormal);
     }
 
@@ -668,7 +680,7 @@ public class ThirdPersonControl : MonoBehaviour
         }
     }
 
-    IEnumerator MoveCharacterToPoint(Vector3 targetPoint, Vector3 targetNormal, float movementSpeed, bool useCurve)
+    IEnumerator MoveCharacterToPoint(Vector3 targetPoint, Vector3 targetNormal, float movementSpeed, bool useCurve, bool rotateSkin)
     {
         Vector3 finalTarget = GetCharacterPosOnLedge(targetPoint, targetNormal);
 
@@ -678,7 +690,7 @@ public class ThirdPersonControl : MonoBehaviour
 
         while (Vector3.Distance(transform.position, finalTarget) > 0.05f && !(useCurve && this.jumpTime <= 0))
         {
-            RotateSkin(-targetNormal);
+            if(rotateSkin) RotateSkin(-targetNormal);
 
             //transform.position = Vector3.Slerp(transform.position, finalTarget, Time.deltaTime * movementSpeed);
 
@@ -776,6 +788,7 @@ public class ThirdPersonControl : MonoBehaviour
             if (Input.GetButtonDown("Fire"))
             {
                 currentWeapon.StartFiring();
+                isShooting = true;
             }
 
             if(Input.GetButtonDown("Reload"))
@@ -793,6 +806,7 @@ public class ThirdPersonControl : MonoBehaviour
         if (Input.GetButtonUp("Fire"))
         {
             currentWeapon.StopFiring();
+            isShooting = false;
         }
 
         if(isHoldingAim && isHoldingWeapon)

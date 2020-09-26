@@ -4,11 +4,17 @@ using UnityEngine;
 
 public class CameraController : MonoBehaviour
 {
+    public static CameraController instance;
+
     #region Camera Properties
     [SerializeField] private float minFOV = 48;
     [SerializeField] private float runFOV = 70;
     [SerializeField] private float fOVChangeSpeed = 0.07f;
     [SerializeField] private float sideSwitchSpeed = 2;
+
+    [SerializeField] private float recoilDuration = 0.1f;
+    [SerializeField] private float recoilMultiplierVertical = 0.1f;
+    [SerializeField] private float recoilMultiplierHorizontal = 0.1f;
 
     [SerializeField] private List<CinemachineVirtualCamera> additionalVirtualCameras;
     [SerializeField] private int cameraStartPriority = 10;
@@ -41,8 +47,13 @@ public class CameraController : MonoBehaviour
     public Vector3 lookRight { get; private set; }
     #endregion
 
+    private float recoilTime = 0;
+    private float recoilStrength = 0;
+
     void Awake()
     {
+        instance = this;
+
         controller = GetComponent<ThirdPersonControl>();
         sideCamera = virtualCameraMain.GetCinemachineComponent<Cinemachine3rdPersonFollow>();
         runCamNoise = virtualCameraMain.GetCinemachineComponent<CinemachineBasicMultiChannelPerlin>();
@@ -59,6 +70,7 @@ public class CameraController : MonoBehaviour
         HandleCameraSideSwitch();
         HandleFieldOfView();
         HandleCameraShake();
+        HandleRecoil();
     }
 
     private void HandleCameraRotation()
@@ -111,6 +123,22 @@ public class CameraController : MonoBehaviour
         else
         {
             if (virtualCameraMain != null) virtualCameraMain.m_Lens.FieldOfView = Mathf.Lerp(virtualCameraMain.m_Lens.FieldOfView, initialFOV, 0.07f);
+        }
+    }
+
+    public void DoRecoil(float strength)
+    {
+        recoilStrength = strength;
+        recoilTime = recoilDuration;
+    }
+
+    private void HandleRecoil()
+    {
+        if(recoilTime > 0)
+        {
+            yAxis.Value -= (recoilStrength * recoilMultiplierVertical * Time.deltaTime) / recoilDuration;
+            xAxis.Value -= (recoilStrength * recoilMultiplierHorizontal * Time.deltaTime) / recoilDuration * Random.Range(-1f, 1f);
+            recoilTime -= Time.deltaTime;
         }
     }
 }

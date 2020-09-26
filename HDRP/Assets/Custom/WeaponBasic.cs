@@ -88,6 +88,7 @@ public class WeaponBasic : MonoBehaviour, IWeapon
 
     public void StartFiring()
     {
+        Debug.Log("Piu");
 
     }
 

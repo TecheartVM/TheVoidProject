@@ -1,6 +1,4 @@
 ﻿using Cinemachine;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -19,6 +17,9 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
     [SerializeField] private Transform inactiveWeaponHolder;
 
     [SerializeField] private Text ammoDisplayField;
+
+    private ThirdPersonControl character;
+    private CinemachineImpulseSource cinemachineImpulse;
     #endregion
 
     #region Weapon Properties
@@ -47,25 +48,34 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
         }
     }
     private float nextBulletTime = 0;
+
+    private bool isFiring = false;
+    #endregion
+
+    #region Main
+    void Start()
+    {
+        character = PlayerManager.instance.player.GetComponent<ThirdPersonControl>();
+        cinemachineImpulse = GetComponent<CinemachineImpulseSource>();
+        if (cinemachineImpulse == null) Debug.LogWarning("Raycast Weapon " + gameObject + " doesn't have an impulse source!");
+    }
+
+    protected void Update()
+    {
+        if (isFiring && isAutomatic)
+        {
+            Shoot();
+        }
+
+        if (nextBulletTime > 0)
+        {
+            nextBulletTime -= Time.deltaTime;
+        }
+    }
     #endregion
 
     #region IWeapon
     public bool isActive { get; private set; }
-
-    public bool IsTwoHanded()
-    {
-        return isTwoHanded;
-    }
-
-    public float GetRecoilStrength()
-    {
-        return recoilStrength;
-    }
-
-    public void Reload()
-    {
-        currentBulletCount = magazineSize;
-    }
 
     public void SetActive(bool value)
     {
@@ -85,27 +95,30 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
         isActive = value;
     }
 
-    public void Shoot(Vector3 aimPosition, int overrideLayer)
-    {
-        if (nextBulletTime <= 0)
-        {
-            if (currentBulletCount > 0)
-            {
-                Destroy(Instantiate(hitEffectPrefab, aimPosition, Quaternion.LookRotation(bulletEmitter.position - aimPosition)), 2);
-                if (!infiniteAmmo) currentBulletCount--;
-                nextBulletTime = 1 / fireRate;
-            }
-        }
-    }
-
     public void StartFiring()
     {
-
+        if (isAutomatic) isFiring = true;
+        else Shoot();
     }
 
     public void StopFiring()
     {
+        isFiring = false;
+    }
 
+    public void Reload()
+    {
+        currentBulletCount = magazineSize;
+    }
+
+    public bool IsTwoHanded()
+    {
+        return isTwoHanded;
+    }
+
+    public float GetRecoilStrength()
+    {
+        return recoilStrength;
     }
 
     public WeaponHoldingConfig GetHoldingConfig()
@@ -118,6 +131,11 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
         return bulletEmitter;
     }
 
+    public Transform GetWeaponTransform()
+    {
+        return transform;
+    }
+
     public Transform GetLeftHandIKTarget()
     {
         return leftHandIKTarget;
@@ -128,23 +146,36 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
         return rightHandIKTarget;
     }
     #endregion
-
-    protected void Update()
+    
+    public void Shoot()
     {
-        if (nextBulletTime > 0)
+        Vector3 currentAimPos = character.GetAimPoint();
+        if (nextBulletTime <= 0)
         {
-            nextBulletTime -= Time.deltaTime;
+            if (currentBulletCount > 0)
+            {
+                Destroy(Instantiate(hitEffectPrefab, currentAimPos, Quaternion.LookRotation(bulletEmitter.position - currentAimPos)), 2);
+                if (!infiniteAmmo) currentBulletCount--;
+                nextBulletTime = 1 / fireRate;
+
+                DoRecoil();
+            }
         }
+    }
+
+    private void DoRecoil()
+    {
+        if (cinemachineImpulse == null) return;
+
+        /*additional recoil modifiers can be added here*/
+        float finalStrength = recoilStrength * (character.isAiming ? 0.8f : character.isSprinting ? 1.4f : 1); 
+
+        cinemachineImpulse.GenerateImpulse(CameraController.instance.mainCamera.forward * finalStrength);
+        CameraController.instance.DoRecoil(finalStrength);
     }
 
     protected virtual void UpdateUIText()
     {
         if (ammoDisplayField != null) ammoDisplayField.text = $"⋮ {currentBulletCount}/{magazineSize}";
     }
-
-    public Transform GetWeaponTransform()
-    {
-        return transform;
-    }
-
 }
