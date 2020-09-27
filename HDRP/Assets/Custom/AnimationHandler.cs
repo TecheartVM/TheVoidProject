@@ -21,6 +21,8 @@ public class AnimationHandler : MonoBehaviour
 
     public string jumpTrigger = "jump";
     public string jumpFromWallTrigger = "jumpFromWall";
+    public string shootPistolTrigger = "shootPistol";
+    public string shootRifleTrigger = "shootRifle";
 
     private static List<int> scheduledAnimations = new List<int>();
 

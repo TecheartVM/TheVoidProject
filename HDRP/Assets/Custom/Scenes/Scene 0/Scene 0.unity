@@ -1076,7 +1076,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_ImpulseDefinition:
     m_ImpulseChannel: 1
-    m_RawSignal: {fileID: 11400000, guid: 2af6e4d28e22bdb4d95b3cb323777437, type: 2}
+    m_RawSignal: {fileID: 11400000, guid: 16ca9ec146dd49a4dbd67b8179f385f7, type: 2}
     m_AmplitudeGain: 1
     m_FrequencyGain: 1
     m_RepeatMode: 0
@@ -1094,7 +1094,7 @@ MonoBehaviour:
         m_PreInfinity: 2
         m_PostInfinity: 2
         m_RotationOrder: 4
-      m_AttackTime: 0.03
+      m_AttackTime: 0
       m_SustainTime: 0.2
       m_DecayTime: 0.7
       m_ScaleWithImpact: 1
@@ -11577,6 +11577,8 @@ MonoBehaviour:
   aimingVariable: aimingInput
   jumpTrigger: jump
   jumpFromWallTrigger: jumpFromWall
+  shootPistolTrigger: shootPistol
+  shootRifleTrigger: shootRifle
 --- !u!4 &2007963425 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -4216859302048453862, guid: 3ca24ddf8603be94a9341895c06f99b8,
@@ -12351,7 +12353,7 @@ MonoBehaviour:
   bulletDamage: 1
   fireRate: 10
   magazineSize: 30
-  recoilStrength: 3
+  recoilStrength: 4
   isTwoHanded: 1
   isAutomatic: 1
   infiniteAmmo: 0
@@ -12393,12 +12395,12 @@ MonoBehaviour:
         m_PreInfinity: 2
         m_PostInfinity: 2
         m_RotationOrder: 4
-      m_AttackTime: 0.03
+      m_AttackTime: 0
       m_SustainTime: 0.2
-      m_DecayTime: 0.5
+      m_DecayTime: 0.7
       m_ScaleWithImpact: 1
       m_HoldForever: 0
-    m_ImpactRadius: 10
+    m_ImpactRadius: 100
     m_DirectionMode: 0
     m_DissipationMode: 2
     m_DissipationDistance: 1000

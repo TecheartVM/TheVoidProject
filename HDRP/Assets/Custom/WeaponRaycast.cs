@@ -165,13 +165,11 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
 
     private void DoRecoil()
     {
-        if (cinemachineImpulse == null) return;
-
         /*additional recoil modifiers can be added here*/
-        float finalStrength = recoilStrength * (character.isAiming ? 0.8f : character.isSprinting ? 1.4f : 1); 
+        float strengthMultiplier = character.isAiming ? 0.8f : character.isSprinting ? 1.4f : 1;
 
-        cinemachineImpulse.GenerateImpulse(CameraController.instance.mainCamera.forward * finalStrength);
-        CameraController.instance.DoRecoil(finalStrength);
+        if (cinemachineImpulse != null) cinemachineImpulse.GenerateImpulse(CameraController.instance.mainCamera.forward * (isTwoHanded ? 1 : recoilStrength) * strengthMultiplier);
+        CameraController.instance.DoRecoil(recoilStrength * strengthMultiplier);
     }
 
     protected virtual void UpdateUIText()
