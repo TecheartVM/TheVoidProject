@@ -44,7 +44,7 @@ public class AnimationHandler : MonoBehaviour
         animator.SetFloat(jumpVariable, player.jumpCooldown <= 0 && Input.GetButtonDown("Jump") ? 1 : 0);
         animator.SetFloat(climbMoveVariable, player.edgeReached ? Mathf.Lerp(animator.GetFloat(climbMoveVariable), 0 , Time.deltaTime * 10) : Input.GetAxis("Horizontal"));
         animator.SetBool(climbIdleVariable, player.isClimbing);
-        animator.SetFloat(aimingVariable, Mathf.Lerp(animator.GetFloat(aimingVariable), player.isHoldingAim && !player.isSprinting && player.isHoldingWeapon ? 1 : 0, Time.deltaTime * 10));
+        animator.SetFloat(aimingVariable, Mathf.Lerp(animator.GetFloat(aimingVariable), (player.isHoldingAim && player.isHoldingWeapon && !player.isSprinting) ? 1 : 0, Time.deltaTime * 30));
 
         if (Input.GetButtonDown("Jump"))
         {

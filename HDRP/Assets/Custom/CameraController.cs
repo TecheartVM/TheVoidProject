@@ -16,17 +16,19 @@ public class CameraController : MonoBehaviour
     [SerializeField] private float recoilMultiplierVertical = 0.1f;
     [SerializeField] private float recoilMultiplierHorizontal = 0.1f;
 
-    [SerializeField] private List<CinemachineVirtualCamera> additionalVirtualCameras;
+    [SerializeField] private CinemachineVirtualCamera virtualCameraMain;
+
+    [SerializeField] private List<CinemachineVirtualCameraBase> virtualCameras;
     [SerializeField] private int cameraStartPriority = 10;
     [SerializeField] private int cameraPriorityIncrement = 10;
 
-    private CinemachineBasicMultiChannelPerlin runCamNoise;
-
-    public CinemachineVirtualCamera currentVirtualCamera { get; private set; }
+    [SerializeField] public CinemachineVirtualCameraBase currentVirtualCamera { get; private set; }
     public int currentVirtualCameraIndex { get; private set; }
 
-    private float initialFOV;
+    private CinemachineBrain cinemachineBrain;
 
+    private float initialFOV;
+    private CinemachineBasicMultiChannelPerlin runCamNoise;
     private ThirdPersonControl controller;
 
     private bool useLeftCam = false;
@@ -34,7 +36,6 @@ public class CameraController : MonoBehaviour
     private bool useRunEffects = false;
 
     private Cinemachine3rdPersonFollow sideCamera;
-    [SerializeField] private CinemachineVirtualCamera virtualCameraMain;
     public AxisState xAxis;
     public AxisState yAxis;
     public Transform cameraLookAt;
@@ -50,6 +51,13 @@ public class CameraController : MonoBehaviour
     private float recoilTime = 0;
     private float recoilStrength = 0;
 
+    [SerializeField] private float climbAimCamHeadingBias = 0;
+    private float totalXAxisBias = 0;
+    float totalXAxisValue;
+
+    private Vector3 prevForward;
+    private Vector3 prevLook;
+
     void Awake()
     {
         instance = this;
@@ -57,27 +65,109 @@ public class CameraController : MonoBehaviour
         controller = GetComponent<ThirdPersonControl>();
         sideCamera = virtualCameraMain.GetCinemachineComponent<Cinemachine3rdPersonFollow>();
         runCamNoise = virtualCameraMain.GetCinemachineComponent<CinemachineBasicMultiChannelPerlin>();
+        cinemachineBrain = mainCamera.GetComponent<CinemachineBrain>();
 
         initialFOV = virtualCameraMain.m_Lens.FieldOfView;
         runCamNoise.m_AmplitudeGain = 0;
+
+        currentVirtualCamera = virtualCameraMain;
+        currentVirtualCameraIndex = 0;
+        virtualCameras.Insert(0, virtualCameraMain);
+        SwitchCamera(0);
+
+        prevForward = Maths.GetVectorIgnoreY(transform.forward);
     }
 
     void Update()
     {
+        HandleCameraSwitch();
         HandleCameraRotation();
         HandlePublicVariables();
-        HandleCameraZoom();
+        if(currentVirtualCameraIndex == 0) HandleCameraZoom();
         HandleCameraSideSwitch();
         HandleFieldOfView();
         HandleCameraShake();
         HandleRecoil();
     }
 
+    private void UpdateClimbingAimCamera()
+    {
+        float curBias = ((CinemachineFreeLook)virtualCameras[2]).m_Heading.m_Bias;
+        if (curBias >= 360)
+        {
+            ((CinemachineFreeLook)virtualCameras[2]).m_Heading.m_Bias -= 360;
+            totalXAxisBias -= 360;
+        }
+        else if (curBias <= -360)
+        {
+            ((CinemachineFreeLook)virtualCameras[2]).m_Heading.m_Bias += 360;
+            totalXAxisBias += 360;
+        }
+
+        float angle = Vector3.SignedAngle(prevForward, Maths.GetVectorIgnoreY(controller.characterForward), Vector3.up) + climbAimCamHeadingBias;
+        totalXAxisBias += angle;
+        ((CinemachineFreeLook)virtualCameras[2]).m_Heading.m_Bias = Mathf.Lerp(((CinemachineFreeLook)virtualCameras[2]).m_Heading.m_Bias, totalXAxisBias, Time.deltaTime * 2);
+
+        prevForward = Maths.GetVectorIgnoreY(controller.characterForward);
+    }
+
+    public void SwitchCamera(int index)
+    {
+        if (currentVirtualCameraIndex == index) return;
+        if (index >= virtualCameras.Count || index < 0)
+        {
+            Debug.LogError("Camera switch error: no such camera with index '" + index + "'!");
+            return;
+        }
+        if (currentVirtualCamera != null)
+        {
+            currentVirtualCamera.m_Priority = cameraStartPriority;
+        }
+
+        currentVirtualCameraIndex = index;
+        currentVirtualCamera = virtualCameras[currentVirtualCameraIndex];
+        currentVirtualCamera.m_Priority += cameraPriorityIncrement;
+    }
+
+    private void HandleCameraSwitch()
+    {
+        if (controller.isClimbing)
+        {
+            if (!controller.isHoldingAim && !controller.isHoldingWeapon)
+            {
+                SwitchCamera(1);
+            }
+            else
+            {
+                SwitchCamera(2);
+            }
+        }
+        else
+        {
+            if (controller.isGrounded)
+            {
+                if (currentVirtualCameraIndex != 0)
+                {
+                    UpdateMainCameraPos();
+                    controller.DropTarget();
+                }
+                SwitchCamera(0);
+            }
+        }
+    }
+
     private void HandleCameraRotation()
     {
-        xAxis.Update(Time.deltaTime);
-        yAxis.Update(Time.deltaTime);
-        cameraLookAt.eulerAngles = new Vector3(yAxis.Value, xAxis.Value, 0);
+        if (currentVirtualCameraIndex == 0)
+        {
+            xAxis.Update(Time.deltaTime);
+            yAxis.Update(Time.deltaTime);
+            cameraLookAt.eulerAngles = new Vector3(yAxis.Value, xAxis.Value, 0);
+        }
+        if (currentVirtualCameraIndex == 2)
+        {
+            UpdateClimbingAimCamera();
+        }
     }
 
     void HandlePublicVariables()
@@ -90,7 +180,7 @@ public class CameraController : MonoBehaviour
     {
         if (controller.isSprinting) return;
         virtualCameraMain.m_Lens.FieldOfView = Mathf.Lerp(virtualCameraMain.m_Lens.FieldOfView, controller.isAiming ? minFOV : initialFOV, Time.deltaTime * fOVChangeSpeed);
-        //sideCamera.CameraDistance = Mathf.Lerp(sideCamera.CameraDistance, useZoom ? 0.9f : 1.3f, Time.deltaTime * fOVChangeSpeed);
+
     }
 
     private void HandleCameraSideSwitch()
@@ -136,9 +226,32 @@ public class CameraController : MonoBehaviour
     {
         if(recoilTime > 0)
         {
-            yAxis.Value -= (recoilStrength * recoilMultiplierVertical * Time.deltaTime) / recoilDuration;
-            xAxis.Value -= (recoilStrength * recoilMultiplierHorizontal * Time.deltaTime) / recoilDuration * Random.Range(-1f, 1f);
+            if(currentVirtualCameraIndex == 0)
+            {
+                yAxis.Value -= (recoilStrength * recoilMultiplierVertical * Time.deltaTime) / recoilDuration;
+                xAxis.Value -= (recoilStrength * recoilMultiplierHorizontal * Time.deltaTime) / recoilDuration * Random.Range(-1f, 1f);
+            }
+            else
+            {
+                ((CinemachineFreeLook)virtualCameras[2]).m_XAxis.Value -= (recoilStrength * recoilMultiplierHorizontal * Time.deltaTime) / recoilDuration * Random.Range(-1f, 1f);
+            }
+            
             recoilTime -= Time.deltaTime;
         }
+    }
+
+    private void UpdateMainCameraPos()
+    {
+        float turnAngle = Vector2.SignedAngle(new Vector2(cameraLookAt.forward.x, cameraLookAt.forward.z), new Vector2(mainCamera.forward.x, mainCamera.forward.z));
+        xAxis.Value -= turnAngle;
+
+        Vector3 camTargetPos = virtualCameraMain.transform.position;
+        camTargetPos.y = mainCamera.position.y;
+        Vector3 lookAtPos = virtualCameraMain.LookAt.position;
+        float distanceToTarget = (lookAtPos - camTargetPos).magnitude;
+        float heightDifference = camTargetPos.y - virtualCameraMain.transform.position.y;
+
+        turnAngle = Mathf.Rad2Deg * Mathf.Atan(heightDifference / distanceToTarget);
+        yAxis.Value += turnAngle / 2;
     }
 }

@@ -28,7 +28,9 @@ public class ThirdPersonControl : MonoBehaviour
     #region Movement System Variables
     private float verticalMotion = 0;
     private Vector3 movement = Vector3.zero;
-    private Vector3 characterForward, characterRight;
+    public Vector3 characterForward { get; private set; }
+    public Vector3 characterRight { get; private set; }
+    private bool prevIsGrounded = false;
     public float jumpCooldown { get; private set; } = 0;
     #endregion
 
@@ -78,6 +80,7 @@ public class ThirdPersonControl : MonoBehaviour
     #endregion
 
     #region Player States
+    public bool isGrounded { get; private set; } = false;
     public bool isSprinting { get; private set; } = false;
     public bool isClimbing { get; private set; } = false;
     public bool isAiming { get; private set; } = false;
@@ -91,6 +94,8 @@ public class ThirdPersonControl : MonoBehaviour
 
     #region Player Events
     public event Action onJump;
+    public event Action onGrounding;
+    public event Action onStartClimbing;
     public event Action onWeaponSwitched;
     #endregion
 
@@ -127,15 +132,21 @@ public class ThirdPersonControl : MonoBehaviour
 
     void Update()
     {
+        isGrounded = characterController.isGrounded;
+        if(prevIsGrounded != isGrounded)
+        {
+            if (onGrounding != null) onGrounding();
+        }
+
         isSprinting = Input.GetButton("Sprint") && horizontalInputTotal > 0 && !isAiming && !(isShooting && currentWeapon.IsTwoHanded()) && !isClimbing;
+
+        HandleShooting();
+        HandleWeaponSwitch();
 
         if (!isClimbing)
         {
             ControllerMove();
             if (!characterController.isGrounded && climbCooldown <= 0 && !isAiming) ClimbStartCheck();
-
-            HandleShooting();
-            HandleWeaponSwitch();
         }
         else
         {
@@ -152,6 +163,8 @@ public class ThirdPersonControl : MonoBehaviour
         if (climbCooldown > 0) climbCooldown -= Time.deltaTime;
 
         if (debugAimHolding) isHoldingAim = true;
+
+        prevIsGrounded = isGrounded;
     }
 
     #endregion
@@ -237,6 +250,14 @@ public class ThirdPersonControl : MonoBehaviour
         {
             if (Input.GetButton("Horizontal"))
             {
+                if (!edgeReached)
+                {
+                    if (currentClimbingState != ClimbingStates.MovingAlongLedge) currentClimbingState = ClimbingStates.MovingAlongLedge;
+                }
+                else
+                {
+                    if (currentClimbingState != ClimbingStates.Idle) currentClimbingState = ClimbingStates.Idle;
+                }
                 Vector3 playerPos = transform.position;
                 playerPos.y = currentLedgePoint.topPoint.y;
                 Vector3 movementDirection = characterRight * Input.GetAxisRaw("Horizontal");
@@ -302,7 +323,11 @@ public class ThirdPersonControl : MonoBehaviour
                     }
                 }
             }
-            
+            else
+            {
+                if (currentClimbingState != ClimbingStates.Idle) currentClimbingState = ClimbingStates.Idle;
+            }
+
             if (Input.GetAxis("Vertical") > 0)
             {
                 UpdateCurrentLedgePoint();
@@ -380,6 +405,8 @@ public class ThirdPersonControl : MonoBehaviour
         DropTarget();
 
         movement = Vector3.zero;
+
+        if (onStartClimbing != null) onStartClimbing();
 
         isClimbing = true;
         StartCoroutine(MoveCharacterToPoint(ledgePoint, ledgeFaceNormal, jumpForce, false, true));
@@ -773,7 +800,8 @@ public class ThirdPersonControl : MonoBehaviour
             {
                 if(weapons != null && weapons.weaponsList.Count > 1)
                 {
-                    SwitchWeapon(1);
+                    if (!isClimbing) SwitchWeapon(1);
+                    else SwitchWeapon(weapons.GetFirstOneHandedWeaponIndex(0, false));
                 }
             }
         }
@@ -785,13 +813,13 @@ public class ThirdPersonControl : MonoBehaviour
                 isAiming = true;
             }
 
-            if (Input.GetButtonDown("Fire"))
+            if (Input.GetButtonDown("Fire") && currentClimbingState == ClimbingStates.Idle)
             {
                 currentWeapon.StartFiring();
                 isShooting = true;
             }
 
-            if(Input.GetButtonDown("Reload"))
+            if(Input.GetButtonDown("Reload") && !isClimbing)
             {
                 DropTarget();
                 currentWeapon.Reload();
@@ -815,6 +843,11 @@ public class ThirdPersonControl : MonoBehaviour
             aimingTimer -= Time.deltaTime;
             if (aimingTimer <= 0) isHoldingAim = false;
         }
+
+        if(isClimbing && currentClimbingState != ClimbingStates.Idle)
+        {
+            DropTarget();
+        }
     }
 
     void TakeAim()
@@ -826,10 +859,14 @@ public class ThirdPersonControl : MonoBehaviour
     void HoldAim()
     {
         currentAimPoint = GetAimPoint();
-        if (Mathf.Abs(Vector3.Angle(Maths.GetVectorIgnoreY(currentAimPoint - transform.position), characterForward)) > aimingMaxAngle) RotateSkin(cameraController.lookForward);
+        if(!isClimbing)
+            if (Mathf.Abs(Vector3.Angle(Maths.GetVectorIgnoreY(currentAimPoint - transform.position), characterForward)) > aimingMaxAngle)
+            {
+                RotateSkin(cameraController.lookForward);
+            }
     }
 
-    void DropTarget()
+    public void DropTarget()
     {
         aimingTimer = 0;
         isHoldingAim = false;
@@ -841,15 +878,18 @@ public class ThirdPersonControl : MonoBehaviour
         if (mouseScroll != 0)
         {
             int nextWeaponIndex;
-            if (mouseScroll > 0)
+            if (mouseScroll > 0.05f)
             {
-                nextWeaponIndex = currentWeaponIndex >= weapons.weaponsList.Count - 1 ? 0 : currentWeaponIndex + 1;
+                if (isClimbing) nextWeaponIndex = weapons.GetFirstOneHandedWeaponIndex(currentWeaponIndex, false);
+                else nextWeaponIndex = currentWeaponIndex <= 0 ? weapons.weaponsList.Count - 1 : currentWeaponIndex - 1;
+                SwitchWeapon(nextWeaponIndex);
             }
-            else
+            else if(mouseScroll < -0.05f)
             {
-                nextWeaponIndex = currentWeaponIndex <= 0 ? weapons.weaponsList.Count - 1 : currentWeaponIndex - 1;
+                if (isClimbing) nextWeaponIndex = weapons.GetFirstOneHandedWeaponIndex(currentWeaponIndex, true);
+                else nextWeaponIndex = currentWeaponIndex >= weapons.weaponsList.Count - 1 ? 0 : currentWeaponIndex + 1;
+                SwitchWeapon(nextWeaponIndex);
             }
-            SwitchWeapon(nextWeaponIndex);
         }
     }
 
@@ -888,6 +928,11 @@ public class ThirdPersonControl : MonoBehaviour
         if (onWeaponSwitched != null) onWeaponSwitched();
     }
 
+    public void EmptyHands()
+    {
+        SwitchWeapon(0);
+    }
+
     private Vector3 GetAimPoint(Vector3 raycastOrigin, Vector3 raycastDirection, float distance, int layerMask)
     {
         RaycastHit hit;
@@ -900,7 +945,11 @@ public class ThirdPersonControl : MonoBehaviour
 
     public Vector3 GetAimPoint()
     {
-        return GetAimPoint(cameraController.mainCamera.position, cameraController.mainCamera.forward, aimingMaxDistance, aimableLayer);
+        Vector3 point = GetAimPoint(cameraController.mainCamera.position, cameraController.mainCamera.forward, aimingMaxDistance, aimableLayer);
+        Vector3 direction = point - cameraController.mainCamera.position;
+        if (direction.magnitude < Vector3.Project(transform.position - cameraController.mainCamera.position, direction).magnitude)
+            return cameraController.mainCamera.position + cameraController.mainCamera.forward * aimingMaxDistance;
+        return point;
     }
     #endregion
 

@@ -10,7 +10,7 @@ public class AimingIK : MonoBehaviour
     [SerializeField] [Range(0, 1)] private float bodyWeightNormal = 0.3f;
     [SerializeField] [Range(0, 1)] private float headWeightNormal = 0.3f;
     [SerializeField] [Range(0, 1)] private float lookWeightAiming = 1f;
-    [SerializeField] [Range(0, 1)] private float bodyWeightAiming = 0.4f;
+    [SerializeField] [Range(0, 1)] private float bodyWeightAiming = 0.0f;
     [SerializeField] [Range(0, 1)] private float headWeightAiming = 1f;
 
     [SerializeField] private bool showDebugInfo = true;
@@ -33,8 +33,11 @@ public class AimingIK : MonoBehaviour
     public bool doIK 
     { 
         set 
-        { 
-            if(value == true) animator.SetLayerWeight(animator.GetLayerIndex("Hands"), 1); 
+        {
+            if (value)
+            {
+                if (!characterControlScript.isClimbing) animator.SetLayerWeight(animator.GetLayerIndex("Hands"), 1);
+            }
             else animator.SetLayerWeight(animator.GetLayerIndex("Hands"), 0);
             enableIK = value;
         }
@@ -65,6 +68,7 @@ public class AimingIK : MonoBehaviour
         }
 
         characterControlScript.onWeaponSwitched += SetupTemporaryObjects;
+        characterControlScript.onGrounding += () => doIK = doIK;
 
         SetupTemporaryObjects();
     }
@@ -142,7 +146,7 @@ public class AimingIK : MonoBehaviour
 
     private void OnAnimatorIK(int layerIndex)
     {
-        if (enableIK)
+        if (enableIK && !(characterControlScript.isClimbing && !characterControlScript.isHoldingAim))
         {
             if (characterControlScript.isHoldingAim)
             {
@@ -154,10 +158,13 @@ public class AimingIK : MonoBehaviour
             }
             animator.SetLookAtPosition(characterControlScript.currentAimPoint);
 
-            animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1);
-            animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 1);
-            animator.SetIKPosition(AvatarIKGoal.LeftHand, leftHandTarget.position);
-            animator.SetIKRotation(AvatarIKGoal.LeftHand, leftHandTarget.rotation);
+            if (!characterControlScript.isClimbing)
+            {
+                animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1);
+                animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 1);
+                animator.SetIKPosition(AvatarIKGoal.LeftHand, leftHandTarget.position);
+                animator.SetIKRotation(AvatarIKGoal.LeftHand, leftHandTarget.rotation);
+            }
 
             animator.SetIKPositionWeight(AvatarIKGoal.RightHand, rightHandIKWeight);
             animator.SetIKRotationWeight(AvatarIKGoal.RightHand, rightHandIKWeight);
