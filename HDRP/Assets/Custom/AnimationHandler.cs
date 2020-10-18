@@ -14,6 +14,8 @@ public class AnimationHandler : MonoBehaviour
     public string forwardInputVariable = "forwardInput";
     public string rightInputVariable = "rightInput";
     public string sprintVariable = "sprintInput";
+    public string crouchVariable = "crouchInput";
+    public string slideVariable = "slideInput";
     public string jumpVariable = "jumpInput";
     public string climbMoveVariable = "climbInput";
     public string climbIdleVariable = "climb";
@@ -33,6 +35,7 @@ public class AnimationHandler : MonoBehaviour
         player = PlayerManager.instance.player.gameObject.GetComponent<ThirdPersonControl>();
 
         player.onJump += TriggerJump;
+        player.onRoll += TriggerRoll;
     }
 
     void Update()
@@ -40,11 +43,13 @@ public class AnimationHandler : MonoBehaviour
         animator.SetFloat(totalHorizontalInputVariable, Mathf.Clamp(Mathf.Abs(Input.GetAxis("Vertical")) + Mathf.Abs(Input.GetAxis("Horizontal")), 0, 1));
         animator.SetFloat(forwardInputVariable, Input.GetAxis("Vertical"));
         animator.SetFloat(rightInputVariable, Input.GetAxis("Horizontal"));
-        animator.SetFloat(sprintVariable, Input.GetAxis("Sprint"));
+        animator.SetFloat(sprintVariable, player.sprintInput);
         animator.SetFloat(jumpVariable, player.jumpCooldown <= 0 && Input.GetButtonDown("Jump") ? 1 : 0);
         animator.SetFloat(climbMoveVariable, player.edgeReached ? Mathf.Lerp(animator.GetFloat(climbMoveVariable), 0 , Time.deltaTime * 10) : Input.GetAxis("Horizontal"));
         animator.SetBool(climbIdleVariable, player.isClimbing);
         animator.SetFloat(aimingVariable, Mathf.Lerp(animator.GetFloat(aimingVariable), (player.isHoldingAim && player.isHoldingWeapon && !player.isSprinting) ? 1 : 0, Time.deltaTime * 30));
+        animator.SetFloat(crouchVariable, Mathf.Lerp(animator.GetFloat(crouchVariable), (player.isCrouching && !player.isSprinting && !player.isSliding) ? 1 : 0, Time.deltaTime * 30));
+        animator.SetFloat(slideVariable, Mathf.Lerp(animator.GetFloat(slideVariable), player.isSliding ? 1 : 0, Time.deltaTime * 70));
 
         if (Input.GetButtonDown("Jump"))
         {
@@ -53,6 +58,11 @@ public class AnimationHandler : MonoBehaviour
                 animator.SetTrigger(jumpFromWallTrigger);
             }
         }
+    }
+
+    private void TriggerRoll()
+    {
+        animator.SetTrigger("roll");
     }
 
     private void TriggerJump()

@@ -9,6 +9,9 @@ public class ThirdPersonControl : MonoBehaviour
     #region External Objects
     [SerializeField] private Transform characterSkin;
 
+    [SerializeField] private float characterHeight = 1.8f;
+    [SerializeField] private float characterHeightOnCrouch = 1.0f;
+
     public CharacterController characterController { get; private set; }
     private CameraController cameraController;
 
@@ -19,6 +22,10 @@ public class ThirdPersonControl : MonoBehaviour
     [Header("Basic Movements")]
     [SerializeField] private float movementSpeed = 5;
     [SerializeField] private float sprintMultiplier = 1.5f;
+    [SerializeField] private float crouchingSpeedMultiplier = 0.5f;
+    [SerializeField] private float slidingSlowdown = 0.2f;
+    [SerializeField] private float rollStartVelocity = 4;
+    [SerializeField] private float rollSlowDownSpeed = 0.1f;
     [SerializeField] private float rotationSpeed = 10;
     [SerializeField] private float jumpForce = 14;
     [SerializeField] private float gravityMultiplier = 90;
@@ -32,6 +39,10 @@ public class ThirdPersonControl : MonoBehaviour
     public Vector3 characterRight { get; private set; }
     private bool prevIsGrounded = false;
     public float jumpCooldown { get; private set; } = 0;
+    private float rollInputTimer = 0;
+
+    private bool shouldSprint = false;
+    private bool shouldCrouch = false;
     #endregion
 
     #region Climbing System Properties
@@ -48,7 +59,7 @@ public class ThirdPersonControl : MonoBehaviour
     [SerializeField] [Range(0, 4)] private float characterYOffsetOnledge = 1.98f;
     [SerializeField] [Range(0, 4)] private float maxDistanceBetweenLedges = 2.4f;
     [SerializeField] [Range(0, 1)] private float climbCooldownTime = 0.2f;
-    [SerializeField] [Range(1,45)] private float ledgeMaxAngle = 30;
+    [SerializeField] [Range(1,45)] private float ledgeMaxAngle = 35;
     #endregion
 
     #region Climbing System Variables
@@ -62,8 +73,8 @@ public class ThirdPersonControl : MonoBehaviour
     #region Shooting System Properties
     [Header("Shooting System")]
     public float aimingMaxDistance = 60;
-    [SerializeField] private float aimingMaxAngle = 30;
-    public float aimingSpeed = 15;
+    [SerializeField] private float aimingMaxAngle = 3;
+    public float aimingSpeed = 12;
     [SerializeField] private float aimingTime = 3;
     [SerializeField] private LayerMask aimableLayer;
 
@@ -82,6 +93,9 @@ public class ThirdPersonControl : MonoBehaviour
     #region Player States
     public bool isGrounded { get; private set; } = false;
     public bool isSprinting { get; private set; } = false;
+    public bool isSliding { get; private set; } = false;
+    public bool isCrouching { get; private set; } = false;
+    public bool isRolling { get; private set; } = false;
     public bool isClimbing { get; private set; } = false;
     public bool isAiming { get; private set; } = false;
     public bool isHoldingAim { get; private set; } = false;
@@ -90,16 +104,19 @@ public class ThirdPersonControl : MonoBehaviour
     public bool edgeReached { get; private set; } = false;
 
     public float horizontalInputTotal { get; private set; } = 0;
+    public float sprintInput { get; private set; } = 0;
     #endregion
 
     #region Player Events
     public event Action onJump;
     public event Action onGrounding;
+    public event Action onRoll;
     public event Action onStartClimbing;
     public event Action onWeaponSwitched;
     #endregion
 
     [SerializeField] private float interactionFieldAngle = 30;
+    [SerializeField] private float doubleClickDelay = 0.5f;
 
     #region Main 
     void Awake()
@@ -138,7 +155,23 @@ public class ThirdPersonControl : MonoBehaviour
             if (onGrounding != null) onGrounding();
         }
 
-        isSprinting = Input.GetButton("Sprint") && horizontalInputTotal > 0 && !isAiming && !(isShooting && currentWeapon.IsTwoHanded()) && !isClimbing;
+        if (shouldSprint)
+        {
+            isSprinting = horizontalInputTotal > 0 && !isCrouching && !isSliding && !isAiming && !(isShooting && currentWeapon.IsTwoHanded()) && !isClimbing;
+        }
+        else
+        {
+            if (isSprinting) isSprinting = false;
+        }
+
+        if (Input.GetButtonDown("Sprint"))
+        {
+            shouldSprint = !shouldSprint;
+        }
+        if(horizontalInputTotal == 0)
+        {
+            if (shouldSprint) shouldSprint = false;
+        }
 
         HandleShooting();
         HandleWeaponSwitch();
@@ -172,26 +205,37 @@ public class ThirdPersonControl : MonoBehaviour
     #region Movement
     void ControllerMove()
     {
-        if (characterController.isGrounded)
+        if (isGrounded)
         {
-            movement = (cameraController.lookForward * Input.GetAxis("Vertical") + cameraController.lookRight * Input.GetAxis("Horizontal")).normalized * movementSpeed;
-            movement = Vector3.ClampMagnitude(movement, movementSpeed);
-
-            if (isAiming)
+            if (!isSliding && !isRolling)
             {
-                movement *= 0.5f;
+                movement = (cameraController.lookForward * Input.GetAxis("Vertical") + cameraController.lookRight * Input.GetAxis("Horizontal")).normalized * movementSpeed;
+                movement = Vector3.ClampMagnitude(movement, movementSpeed);
+
+                if (isAiming)
+                {
+                    movement *= 0.5f;
+                }
+                else
+                {
+                    if (isSprinting)
+                    {
+                        movement *= sprintMultiplier;
+                        if (isHoldingAim && currentWeapon.IsTwoHanded()) DropTarget();
+                    }
+                }
+
+                RotateSkin(isHoldingAim && !isSprinting && isHoldingWeapon ? cameraController.lookForward : movement);
             }
             else
             {
-                if (isSprinting)
-                {
-                    movement *= sprintMultiplier;
-                    if (isHoldingAim && currentWeapon.IsTwoHanded()) DropTarget();
-                }
+                movement -= movement.normalized * slidingSlowdown * Time.deltaTime;
             }
-
-            RotateSkin(isHoldingAim && !isSprinting && isHoldingWeapon ? cameraController.lookForward : movement);
         }
+        HandleRoll();
+        HandleSliding();
+        HandleCrouching();
+        HandleCharacterHeight();
         HandleJump();
 
         movement.y = verticalMotion;
@@ -208,9 +252,14 @@ public class ThirdPersonControl : MonoBehaviour
             {
                 if (Input.GetButtonDown("Jump"))
                 {
-                    verticalMotion = jumpForce;
-                    jumpCooldown = jumpCooldownTime;
-                    if (onJump != null) onJump();
+                    if (!(isCrouching && !CanGetUp()) && !isRolling && !isSliding)
+                    {
+                        if(!isSprinting) movement = (cameraController.lookForward * Input.GetAxis("Vertical") + cameraController.lookRight * Input.GetAxis("Horizontal")).normalized * movementSpeed;
+
+                        verticalMotion = jumpForce;
+                        jumpCooldown = jumpCooldownTime;
+                        if (onJump != null) onJump();
+                    }
                 }
             }
             else
@@ -219,6 +268,96 @@ public class ThirdPersonControl : MonoBehaviour
             }
         }
         verticalMotion -= gravityMultiplier * Time.deltaTime;
+    }
+
+    void HandleCrouching()
+    {
+        if(isGrounded && !isSliding)
+        {
+            if(Input.GetButton("Crouch"))
+            {
+                if(!shouldCrouch) shouldCrouch = true;
+            }
+            if(shouldCrouch)
+            {
+                movement *= crouchingSpeedMultiplier;
+
+                if (!isCrouching) isCrouching = true;
+
+                if(!Input.GetButton("Crouch")) if(CanGetUp()) shouldCrouch = false;
+            }
+        }
+        if (!shouldCrouch)
+        {
+            if (isCrouching) isCrouching = false;
+        }
+    }
+
+    void HandleSliding()
+    {
+        if (isSliding)
+        {
+            if (movement.magnitude <= movementSpeed * crouchingSpeedMultiplier)
+            {
+                isSliding = false;
+                shouldCrouch = Input.GetButton("Crouch") || !CanGetUp();
+            }
+        }
+
+        if (!shouldCrouch && Input.GetButton("Crouch"))
+        {
+            if (sprintInput > 0.0001f && !isSliding && isGrounded)
+            {
+                shouldSprint = false;
+                isSliding = true;
+            }
+        }
+        else if (isSliding)
+        {
+            if (CanGetUp())
+            {
+                isSliding = false;
+                if (movement.magnitude > movementSpeed) shouldSprint = true;
+            }
+        }
+    }
+
+    void HandleRoll()
+    {
+        if(Input.GetButtonDown("Sprint") && !isCrouching && !isSliding && jumpCooldown <= 0)
+        {
+            if (rollInputTimer > 0)
+            {
+                //do roll
+                if (isGrounded)
+                {
+                    jumpCooldown = jumpCooldownTime;
+                    Vector3 velocity = horizontalInputTotal != 0 ? Maths.GetVectorIgnoreY(movement).normalized * rollStartVelocity : characterForward * rollStartVelocity;
+                    StartCoroutine(DoRoll(velocity));
+                }
+
+                //reset timer
+                rollInputTimer = 0;
+            }
+            else
+            {
+                rollInputTimer = doubleClickDelay;
+            }
+        }
+
+        if (rollInputTimer > 0) rollInputTimer -= Time.deltaTime;
+    }
+
+    void HandleCharacterHeight()
+    {
+        if(shouldCrouch || isSliding || isRolling)
+        {
+            if (characterController.height != characterHeightOnCrouch) SetCharacterHeight(characterHeightOnCrouch);
+        }
+        else
+        {
+            if (characterController.height != characterHeight) SetCharacterHeight(characterHeight);
+        }
     }
 
     void RotateSkin(Vector3 targetLookDirection)
@@ -238,6 +377,50 @@ public class ThirdPersonControl : MonoBehaviour
     private void WriteHorizontalMotion()
     {
         horizontalInputTotal = Mathf.Clamp(Math.Abs(Input.GetAxis("Vertical")) + Mathf.Abs(Input.GetAxis("Horizontal")), 0, 1);
+
+        sprintInput = (float)Math.Round(Mathf.Lerp(sprintInput, isSprinting ? 1 : 0, Time.deltaTime * 30), 4);
+    }
+
+    public bool CanGetUp()
+    {
+        RaycastHit hit;
+        if(Physics.Raycast(transform.position, Vector3.up, out hit, characterHeight, environmentLayer))
+        {
+            return false;
+        }
+        return true;
+    }
+
+    private void SetCharacterHeight(float value)
+    {
+        characterController.height = value;
+        characterController.center = Vector3.up * (value / 2);
+    }
+
+    private IEnumerator DoRoll(Vector3 velocity)
+    {
+        isRolling = true;
+        DropTarget();
+        if (onRoll != null) onRoll();
+
+        movement = velocity;
+        float accumulatedTime = 0;
+        while((movement + velocity).magnitude > velocity.magnitude)
+        {
+            RotateSkin(velocity);
+            if (Maths.GetVectorIgnoreY(movement).magnitude < movementSpeed * horizontalInputTotal) break;
+
+            movement -= velocity.normalized * Mathf.Exp(accumulatedTime) * rollSlowDownSpeed;
+            accumulatedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        if(!CanGetUp())
+        {
+            shouldCrouch = true;
+            shouldSprint = false;
+        }
+        isRolling = false;
     }
     #endregion
 

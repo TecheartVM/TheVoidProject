@@ -165,9 +165,8 @@ public class WeaponRaycast : MonoBehaviour, IWeapon
 
     private void DoRecoil()
     {
-        /*additional recoil modifiers can be added here*/
-        float strengthMultiplier = character.isAiming ? 0.8f : character.isSprinting ? 1.4f : 1;
-
+        PlayerStats playerStats = character.GetComponent<PlayerStats>();
+        float strengthMultiplier = playerStats != null ? playerStats.GetShootingInaccuracy() : 1;
         if (cinemachineImpulse != null) cinemachineImpulse.GenerateImpulse(CameraController.instance.mainCamera.forward * (isTwoHanded ? 1 : recoilStrength) * strengthMultiplier);
         CameraController.instance.DoRecoil(recoilStrength * strengthMultiplier);
     }
